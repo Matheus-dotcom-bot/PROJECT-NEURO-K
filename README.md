@@ -1,94 +1,112 @@
-<div align="center">
-🧠 PROJECT NEURO-K
-Cross-Layer Memory Control Architecture
-<br>
+PROJECT NEURO-K
 
-Internal Engineering Initiative
-Hybrid Kernel Interaction · Deterministic Benchmarking · Privilege-Aware Design
+Hybrid Memory Control & Cross-Layer Orchestration
+Internal Systems Engineering Study
 
-</div>
-<br>
-🧭 The Core Question
+Overview
 
-Can low-level memory control safely interact with high-level orchestration logic — without breaking abstraction boundaries?
+PROJECT NEURO-K is an exploratory systems engineering initiative focused on evaluating controlled interaction between:
 
-NEURO-K exists to explore that boundary.
+Kernel-level memory operations
 
-<br>
-🏗 Architectural Composition
-<div align="center">
-┌──────────────────────────────┐
-│      Analytical Layer        │
-│  Metrics • Delta • Artifacts │
-└──────────────▲───────────────┘
-               │
-┌──────────────┴───────────────┐
-│     Orchestration Layer      │
-│  Simulation • Telemetry      │
-│  Safe Privilege Logic        │
-└──────────────▲───────────────┘
-               │
-┌──────────────┴───────────────┐
-│     Native Control Layer     │
-│  UID Gate • Cache Drop       │
-└──────────────────────────────┘
+High-level orchestration logic
 
-</div>
+The objective is to validate architectural feasibility under controlled experimental conditions — not to deliver a production memory manager.
 
-Minimal surface area.
-Explicit privilege boundaries.
-Deterministic outputs.
+This project emphasizes:
 
-<br>
-🔬 Experimental Flow
-Memory Pressure → Baseline Telemetry → Conditional Cleanup
-        ↓
-Post-State Capture → Delta Computation → Artifact Generation
+Privilege-aware execution
+
+Deterministic benchmarking
+
+Cross-layer transparency
+
+Reproducible artifacts
+
+Architecture
+
+The system follows a layered model:
+
+Native Control Layer
+    ↳ UID-gated cache interaction
+
+Orchestration Layer
+    ↳ Memory pressure simulation
+    ↳ Telemetry capture
+    ↳ Safe fallback logic
+
+Analytical Layer
+    ↳ CSV output
+    ↳ Delta computation
+    ↳ Graph generation
 
 
-Execution is valid in both:
+Each layer has clearly defined responsibility boundaries.
 
-🔐 Root mode
+Experimental Workflow
 
-🛡 Non-root safe mode
+Simulate synthetic memory pressure (~300MB).
 
-<br>
-📊 Benchmark Snapshot
-<div align="center">
-Mode	Before (kB)	After (kB)	Δ (kB)
-Non-root	1,850,000	1,862,000	+12,000
-</div>
-📈 Generated Visualization
+Capture baseline MemAvailable from /proc/meminfo.
+
+Attempt controlled cache drop (root only).
+
+Capture post-operation memory state.
+
+Compute delta.
+
+Persist benchmark artifacts.
+
+Generate visualization.
+
+The experiment is valid in both root and non-root modes.
+
+Benchmark Configuration
+Parameter	Value
+OS	Linux
+Memory Load	~300MB synthetic allocation
+Telemetry Source	/proc/meminfo
+Cleanup Primitive	drop_caches (root only)
+Artifacts	CSV + PNG
+Sample Benchmark Output
+clean_executed	before_kb	after_kb	delta_kb
+False	1850000	1862000	+12000
+
+Delta calculation:
+
+delta_kb = after_kb - before_kb
+
+Generated Visualization
+
+When executed, the project produces:
+
+results/benchmark.png
+
+
+To embed in the README:
+
 ![NEURO-K Benchmark](results/benchmark.png)
 
 
-Every execution produces:
+Rendered example:
 
-/results/benchmark.csv
-/results/benchmark.png
-
-<br>
-📏 Technical Control Indicators
-<div align="center">
-Control Metric	Status
+Technical KPIs
+KPI	Target
 Execution Stability	≥ 99%
-Privilege Enforcement	100%
-Telemetry Integrity	Verified
-Artifact Determinism	Verified
-Delta Reproducibility	Stable
-</div>
-<br>
-💻 Code Boundary (Illustrative)
-Native Privilege Gate
+Privilege Safety Compliance	100%
+Telemetry Consistency	100%
+Artifact Generation	100%
+Deterministic Delta	Verified
+Implementation Highlights
+Native Privilege Gate (C)
 if (geteuid() != 0) {
     Py_RETURN_FALSE;
 }
 
 
-No forced escalation.
-No undefined behavior.
+Ensures strict privilege control.
 
-Orchestration Logic
+Orchestration Logic (Python)
 before = read_memavailable_kb()
 cleaned = safe_cleanup()
 after = read_memavailable_kb()
@@ -96,57 +114,49 @@ after = read_memavailable_kb()
 delta = after - before
 
 
-Clear.
-Deterministic.
-Auditable.
+Deterministic state transition measurement.
 
-<br>
-⚙ Design Philosophy
+Visualization Snippet
+plt.bar(["Before", "After"], [before_kb, after_kb])
+plt.title("NEURO-K Memory Benchmark")
+plt.ylabel("MemAvailable (kB)")
+plt.savefig("results/benchmark.png")
 
-Minimal kernel exposure
+Engineering Decisions & Trade-offs
+Decision	Rationale	Trade-Off
+Native extension	Controlled OS interaction	Linux-only
+Python orchestration	Rapid experimentation	Abstraction overhead
+Cache drop primitive	Demonstrative low-level control	Intrusive
+Synthetic load	Reproducible test	Not workload-representative
+Risk Controls
 
-Explicit privilege model
+Strict UID enforcement
 
-Deterministic execution pipeline
+Non-root safe fallback
 
-Observable state transitions
+Explicit experimental scope
 
-Transparent limitations
+Deterministic artifact generation
 
-No hidden complexity.
+Limitations
 
-<br>
-🛡 Risk Governance
-Risk	Control
-Privileged misuse	UID enforcement
-Runtime instability	Safe fallback
-Production misinterpretation	Explicit experimental scope
-<br>
-🚀 Strategic Relevance
+Linux-only implementation
 
-NEURO-K supports architectural exploration in:
+Cache drop is experimental
 
-Platform Engineering
+Synthetic pressure model
 
-Runtime Tooling
+No container-awareness
 
-Observability Design
+Cloud offloading layer is conceptual
 
-Memory-Aware Orchestration
-
-Hybrid Infrastructure Strategy
-
-It is a sandbox for architectural evaluation — not a runtime product.
-
-<br> <div align="center">
 Status
 
 Exploratory Engineering Study
-Controlled Linux Testbed
+Internal Benchmark Initiative
+Not production-bound
 
-<br>
+Author
 
 Matheus Boeira Pedroso
 Systems Engineering · Cloud Infrastructure · Security-Oriented Design
-
-</div>
