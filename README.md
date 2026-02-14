@@ -2,7 +2,6 @@
 
 **Systems Engineering Experiment: Hybrid Local Memory Control + Cloud Offloading Strategy**
 
-
 ---
 
 ## Overview
