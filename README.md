@@ -1,195 +1,166 @@
 <div align="center">
-🚀 PROJECT NEURO-K
+PROJECT NEURO-K
 Hybrid Memory Control & Cross-Layer Orchestration
 
 Internal Systems Engineering Initiative
 
+<sub>Exploratory Architecture • Privilege-Aware Design • Reproducible Benchmarking</sub>
+
 </div>
-🧭 Executive Summary
+<br>
+🧭 Concept
 
-NEURO-K is an internal engineering study designed to evaluate controlled interaction between:
+Modern infrastructure abstracts kernel behavior.
 
-Kernel-Level Resource Control  ↔  Application-Level Orchestration
+This improves scalability —
+but reduces visibility into memory dynamics.
+
+NEURO-K explores the boundary between:
+
+[ Kernel-Level Resource Control ]
+                ↕
+[ High-Level Orchestration Logic ]
 
 
-The initiative investigates whether low-level memory operations can safely integrate into high-level execution flows while preserving:
+The goal is architectural transparency, not optimization.
 
-Determinism
-
-Privilege safety
-
-Measurable observability
-
-Reproducible artifacts
-
-Experimental architecture study. Not production software.
-
+<br>
 🏗 Architecture
+<div align="center">
 ┌──────────────────────────────┐
-│      Analytical Layer        │
-│  • CSV output                │
-│  • PNG visualization         │
-│  • Delta computation         │
+│        Analytical Layer       │
+│   CSV • Graph • Delta Logic   │
 └──────────────▲───────────────┘
                │
 ┌──────────────┴───────────────┐
-│     Orchestration Layer      │
-│  • Memory pressure sim       │
-│  • Telemetry capture         │
-│  • Safe privilege fallback   │
+│     Orchestration Layer       │
+│  Pressure • Telemetry • Safe  │
 └──────────────▲───────────────┘
                │
 ┌──────────────┴───────────────┐
-│      Native Control Layer    │
-│  • UID-gated execution       │
-│  • Controlled cache drop     │
-│  • Minimal kernel surface    │
+│      Native Control Layer     │
+│  UID Gate • Cache Control     │
 └──────────────────────────────┘
 
-🔬 Experimental Workflow
+</div>
 
-Allocate ~300MB synthetic memory load
+Layer separation is explicit.
+Privilege boundaries are enforced.
 
-Capture baseline MemAvailable
+<br>
+🔬 Experimental Flow
 
-Attempt privileged cleanup (UID == 0 only)
+Allocate synthetic memory pressure (~300MB)
 
-Capture post-operation telemetry
+Capture baseline telemetry
+
+Attempt privileged cleanup (root only)
+
+Capture post-operation state
 
 Compute delta
 
-Persist artifacts
+Persist structured artifacts
 
-Generate visual benchmark
+Generate visualization
 
-📊 Benchmark Results
-Structured Output (CSV)
-clean_executed	before_kb	after_kb	delta_kb
-False	1850000	1862000	+12000
-delta_kb = after_kb − before_kb
+The experiment remains valid in both root and non-root execution.
 
-📈 Embedded Benchmark Visualization
-
-If executed locally, the project generates:
-
-/results/benchmark.png
-
-
-Embed in README:
-
+<br>
+📊 Benchmark Snapshot
+Structured Output
+Mode	Before (kB)	After (kB)	Delta
+Non-root	1850000	1862000	+12000
+Embedded Graph
 ![NEURO-K Benchmark](results/benchmark.png)
 
 
-Example rendered graph:
-
-📊 Visual Memory Comparison (Inline Representation)
-Before  | ████████████████████ 1850000 kB
-After   | █████████████████████ 1862000 kB
-Delta   | +12000 kB
-
+<br>
 📏 Technical KPIs
-KPI	Target	Status
-Execution Stability	≥ 99%	Stable
-Privilege Compliance	100%	Verified
-Telemetry Integrity	100%	Verified
-Artifact Generation	100%	Verified
-Memory Delta Observability	Deterministic	Verified
-💻 Implementation Examples
-Native Control Layer (Conceptual C Extension)
-#define PY_SSIZE_T_CLEAN
-#include <Python.h>
-#include <stdio.h>
-#include <unistd.h>
-
-static PyObject* nicho_clean(PyObject* self, PyObject* args) {
-    if (geteuid() != 0) {
-        Py_RETURN_FALSE;
-    }
-
-    FILE* f = fopen("/proc/sys/vm/drop_caches", "w");
-    if (!f) {
-        Py_RETURN_FALSE;
-    }
-
-    fprintf(f, "3\n");
-    fclose(f);
-
-    Py_RETURN_TRUE;
+<div align="center">
+KPI	Target
+Execution Stability	≥ 99%
+Privilege Safety	100%
+Telemetry Integrity	100%
+Artifact Generation	100%
+Deterministic Delta	Verified
+</div>
+<br>
+💻 Implementation Highlights
+Native Control (C)
+if (geteuid() != 0) {
+    Py_RETURN_FALSE;
 }
 
-Orchestration Pipeline (Python Example)
-def run_experiment():
-    arr = simulate_memory_pressure(300)
 
-    before = read_memavailable_kb()
-    cleaned = safe_cleanup()
-    after = read_memavailable_kb()
+Strict UID gating.
+No forced elevation.
 
-    delta = after - before
+Orchestration (Python)
+before = read_memavailable_kb()
+cleaned = safe_cleanup()
+after = read_memavailable_kb()
 
-    return {
-        "clean_executed": cleaned,
-        "before_kb": before,
-        "after_kb": after,
-        "delta_kb": delta
-    }
+delta = after - before
 
-Artifact Generation (CSV + Graph)
-def save_plot(before_kb, after_kb):
-    plt.bar(["Before", "After"], [before_kb, after_kb])
-    plt.title("NEURO-K Memory Benchmark")
-    plt.ylabel("MemAvailable (kB)")
-    plt.savefig("results/benchmark.png")
 
-⚙ Engineering Decisions
-Decision	Rationale	Trade-Off
-Native extension	Controlled OS interaction	Linux-only
-Python orchestration	Flexible experimentation	Higher abstraction
-Cache drop primitive	Demonstrative control	Intrusive
-Synthetic load	Reproducible	Not workload-realistic
-🔐 Risk Controls
+Deterministic capture.
+Safe fallback logic.
 
-Strict UID gating
+Visualization
+plt.bar(["Before", "After"], [before_kb, after_kb])
+plt.title("NEURO-K Memory Benchmark")
+plt.savefig("results/benchmark.png")
 
-Non-root safe fallback
 
-Explicit experimental labeling
+Every execution produces reproducible artifacts.
 
-Deterministic artifact generation
+<br>
+⚙ Engineering Principles
 
+Minimal kernel surface area
+
+Privilege-aware design
+
+Deterministic execution
+
+Explicit experimental scope
+
+Measurable outcomes
+
+<br>
+🔐 Risk Control
+Risk	Control
+Privileged misuse	UID check
+System instability	Safe fallback
+Misclassification	Experimental labeling
+<br>
 🚀 Strategic Relevance
 
 Relevant for:
 
 Platform Engineering
 
-Runtime Infrastructure Tooling
+Runtime Tooling
 
 Memory-Aware Orchestration
 
-Hybrid Local/Cloud Research
+Hybrid Infrastructure Design
 
 Observability Architecture
 
-🔮 Future Enhancements
+NEURO-K acts as a controlled sandbox for evaluating cross-layer architectural decisions.
 
-Threshold-based adaptive cleanup
-
-Container-aware telemetry
-
-Predictive memory modeling
-
-Distributed orchestration simulation
-
-Observability stack integration
-
-<div align="center">
-Status
+<br>
+📌 Status
 
 Exploratory Engineering Study
 Internal Benchmark Initiative
+Linux Test Environment
 
+<div align="center">
 Matheus Boeira Pedroso
+
 Systems Engineering • Cloud Infrastructure • Security-Oriented Design
 
 </div>
