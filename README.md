@@ -1,102 +1,94 @@
 <div align="center">
-PROJECT NEURO-K
-Hybrid Memory Control & Cross-Layer Orchestration
+🧠 PROJECT NEURO-K
+Cross-Layer Memory Control Architecture
+<br>
 
-Internal Systems Engineering Initiative
-
-<sub>Exploratory Architecture • Privilege-Aware Design • Reproducible Benchmarking</sub>
+Internal Engineering Initiative
+Hybrid Kernel Interaction · Deterministic Benchmarking · Privilege-Aware Design
 
 </div>
 <br>
-🧭 Concept
+🧭 The Core Question
 
-Modern infrastructure abstracts kernel behavior.
+Can low-level memory control safely interact with high-level orchestration logic — without breaking abstraction boundaries?
 
-This improves scalability —
-but reduces visibility into memory dynamics.
-
-NEURO-K explores the boundary between:
-
-[ Kernel-Level Resource Control ]
-                ↕
-[ High-Level Orchestration Logic ]
-
-
-The goal is architectural transparency, not optimization.
+NEURO-K exists to explore that boundary.
 
 <br>
-🏗 Architecture
+🏗 Architectural Composition
 <div align="center">
 ┌──────────────────────────────┐
-│        Analytical Layer       │
-│   CSV • Graph • Delta Logic   │
+│      Analytical Layer        │
+│  Metrics • Delta • Artifacts │
 └──────────────▲───────────────┘
                │
 ┌──────────────┴───────────────┐
-│     Orchestration Layer       │
-│  Pressure • Telemetry • Safe  │
+│     Orchestration Layer      │
+│  Simulation • Telemetry      │
+│  Safe Privilege Logic        │
 └──────────────▲───────────────┘
                │
 ┌──────────────┴───────────────┐
-│      Native Control Layer     │
-│  UID Gate • Cache Control     │
+│     Native Control Layer     │
+│  UID Gate • Cache Drop       │
 └──────────────────────────────┘
 
 </div>
 
-Layer separation is explicit.
-Privilege boundaries are enforced.
+Minimal surface area.
+Explicit privilege boundaries.
+Deterministic outputs.
 
 <br>
 🔬 Experimental Flow
+Memory Pressure → Baseline Telemetry → Conditional Cleanup
+        ↓
+Post-State Capture → Delta Computation → Artifact Generation
 
-Allocate synthetic memory pressure (~300MB)
 
-Capture baseline telemetry
+Execution is valid in both:
 
-Attempt privileged cleanup (root only)
+🔐 Root mode
 
-Capture post-operation state
-
-Compute delta
-
-Persist structured artifacts
-
-Generate visualization
-
-The experiment remains valid in both root and non-root execution.
+🛡 Non-root safe mode
 
 <br>
 📊 Benchmark Snapshot
-Structured Output
-Mode	Before (kB)	After (kB)	Delta
-Non-root	1850000	1862000	+12000
-Embedded Graph
+<div align="center">
+Mode	Before (kB)	After (kB)	Δ (kB)
+Non-root	1,850,000	1,862,000	+12,000
+</div>
+📈 Generated Visualization
 ![NEURO-K Benchmark](results/benchmark.png)
 
 
+Every execution produces:
+
+/results/benchmark.csv
+/results/benchmark.png
+
 <br>
-📏 Technical KPIs
+📏 Technical Control Indicators
 <div align="center">
-KPI	Target
+Control Metric	Status
 Execution Stability	≥ 99%
-Privilege Safety	100%
-Telemetry Integrity	100%
-Artifact Generation	100%
-Deterministic Delta	Verified
+Privilege Enforcement	100%
+Telemetry Integrity	Verified
+Artifact Determinism	Verified
+Delta Reproducibility	Stable
 </div>
 <br>
-💻 Implementation Highlights
-Native Control (C)
+💻 Code Boundary (Illustrative)
+Native Privilege Gate
 if (geteuid() != 0) {
     Py_RETURN_FALSE;
 }
 
 
-Strict UID gating.
-No forced elevation.
+No forced escalation.
+No undefined behavior.
 
-Orchestration (Python)
+Orchestration Logic
 before = read_memavailable_kb()
 cleaned = safe_cleanup()
 after = read_memavailable_kb()
@@ -104,63 +96,57 @@ after = read_memavailable_kb()
 delta = after - before
 
 
-Deterministic capture.
-Safe fallback logic.
-
-Visualization
-plt.bar(["Before", "After"], [before_kb, after_kb])
-plt.title("NEURO-K Memory Benchmark")
-plt.savefig("results/benchmark.png")
-
-
-Every execution produces reproducible artifacts.
+Clear.
+Deterministic.
+Auditable.
 
 <br>
-⚙ Engineering Principles
+⚙ Design Philosophy
 
-Minimal kernel surface area
+Minimal kernel exposure
 
-Privilege-aware design
+Explicit privilege model
 
-Deterministic execution
+Deterministic execution pipeline
 
-Explicit experimental scope
+Observable state transitions
 
-Measurable outcomes
+Transparent limitations
+
+No hidden complexity.
 
 <br>
-🔐 Risk Control
+🛡 Risk Governance
 Risk	Control
-Privileged misuse	UID check
-System instability	Safe fallback
-Misclassification	Experimental labeling
+Privileged misuse	UID enforcement
+Runtime instability	Safe fallback
+Production misinterpretation	Explicit experimental scope
 <br>
 🚀 Strategic Relevance
 
-Relevant for:
+NEURO-K supports architectural exploration in:
 
 Platform Engineering
 
 Runtime Tooling
 
+Observability Design
+
 Memory-Aware Orchestration
 
-Hybrid Infrastructure Design
+Hybrid Infrastructure Strategy
 
-Observability Architecture
+It is a sandbox for architectural evaluation — not a runtime product.
 
-NEURO-K acts as a controlled sandbox for evaluating cross-layer architectural decisions.
-
-<br>
-📌 Status
+<br> <div align="center">
+Status
 
 Exploratory Engineering Study
-Internal Benchmark Initiative
-Linux Test Environment
+Controlled Linux Testbed
 
-<div align="center">
+<br>
+
 Matheus Boeira Pedroso
-
-Systems Engineering • Cloud Infrastructure • Security-Oriented Design
+Systems Engineering · Cloud Infrastructure · Security-Oriented Design
 
 </div>
