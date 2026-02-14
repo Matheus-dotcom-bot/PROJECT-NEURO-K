@@ -1,121 +1,37 @@
-# PROJECT NEURO-K
+PROJECT NEURO-K
 
-**Systems Engineering Experiment: Hybrid Local Memory Control + Cloud Offloading Strategy**
+Systems Engineering Research Prototype: Hybrid Local Memory Control & High-Level Orchestration
 
----
+Abstract
 
-## Overview
+PROJECT NEURO-K is an experimental systems engineering prototype investigating cross-layer integration between low-level memory control mechanisms and high-level orchestration logic.
 
-PROJECT NEURO-K is an experimental systems engineering project that explores:
+The system explores privilege-aware cache operations, telemetry-based benchmarking, and structured output generation under simulated memory pressure conditions.
 
-- Local memory pressure handling using a **C extension**
-- A **Python orchestration layer**
-- Optional **cloud offloading strategy** (conceptual layer)
-- Controlled cleanup and **telemetry collection**
+This document includes implementation exemplifications for research transparency.
 
-**Goal:** investigate how low-level memory operations can integrate with high-level orchestration in hybrid architectures.
+Architectural Overview
 
-> This is **not** a production system. It is a **research-oriented engineering experiment**.
+NEURO-K follows a three-layer conceptual model:
 
----
+Low-Level Control Layer (Native interaction)
 
-## Architecture
+Orchestration Layer (Execution & telemetry)
 
-/core
-neuro_k_core.c → Low-level memory management extension (C11)
-setup.py → C extension build script
+Analytical Layer (Benchmark persistence & visualization)
 
-/nicho
-main_engine.py → Python orchestration engine (benchmark + graph)
+Implementation Exemplifications
 
-/results
-benchmark.csv → Benchmark results (generated)
-benchmark.png → Benchmark graph (generated)
+The following listings illustrate the experimental architecture design.
 
-requirements.txt
-README.md
-
-
----
-
-## Core Concept
-
-1. Detect memory pressure (simulated)
-2. Trigger controlled cleanup (**optional root-level cache drop**)
-3. Collect telemetry
-4. Enable decision logic for offloading computation (future work)
-
----
-
-## Installation
-
-### Requirements
-
-- Linux (recommended)
-- Python 3.9+
-- GCC / build-essential
-- NumPy
-- Matplotlib (for auto graph)
-
----
-
-### Step 1 — Create Virtual Environment
-
-```bash
-python -m venv venv
-source venv/bin/activate
-
-Step 2 — Install Dependencies
-
-pip install -r requirements.txt
-
-requirements.txt:
-
-numpy
-matplotlib
-
-Step 3 — Build C Extension
-
-cd core
-python setup.py build_ext --inplace
-cd ..
-
-Running the Project
-
-python nicho/main_engine.py
-
-    If executed as root, OS cache cleanup will run.
-
-    If not root, the system will continue safely without dropping caches.
-
-Outputs:
-
-    results/benchmark.csv
-
-    results/benchmark.png
-
-Benchmark Output
-
-Results are saved in:
-
-results/benchmark.csv
-results/benchmark.png
-
-CSV example:
-clean_executed	mem_available_before_kb	mem_available_after_kb
-False	1850000	1862000
-C Extension (core/neuro_k_core.c)
-
-    ⚠️ Note: drop_caches is Linux-specific and requires root.
-    The function returns False when not executed with privileges.
-
+Listing 1 — Native Extension (Conceptual Example)
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <stdio.h>
 #include <unistd.h>
 
 static PyObject* nicho_clean(PyObject* self, PyObject* args) {
-    // Safety: do nothing if not root
+    // Safety gate: only execute if running as root
     if (geteuid() != 0) {
         Py_RETURN_FALSE;
     }
@@ -125,182 +41,166 @@ static PyObject* nicho_clean(PyObject* self, PyObject* args) {
         Py_RETURN_FALSE;
     }
 
-    // 3 = drop pagecache + dentries + inodes
+    // Linux: 3 = pagecache + dentries + inodes
     fprintf(f, "3\n");
     fclose(f);
 
     Py_RETURN_TRUE;
 }
 
-static PyMethodDef NeuroKMethods[] = {
-    {"nicho_clean", nicho_clean, METH_NOARGS, "Safely drop OS cache (requires root)."},
+static PyMethodDef Methods[] = {
+    {"nicho_clean", nicho_clean, METH_NOARGS, "Drop caches safely (root-only)."},
     {NULL, NULL, 0, NULL}
 };
 
-static struct PyModuleDef neurokmodule = {
+static struct PyModuleDef Module = {
     PyModuleDef_HEAD_INIT,
     "neuro_k_core",
     NULL,
     -1,
-    NeuroKMethods
+    Methods
 };
 
 PyMODINIT_FUNC PyInit_neuro_k_core(void) {
-    return PyModule_Create(&neurokmodule);
+    return PyModule_Create(&Module);
 }
 
-Build Script (core/setup.py)
-
-from setuptools import setup, Extension
-
-module = Extension(
-    "neuro_k_core",
-    sources=["neuro_k_core.c"],
-)
-
-setup(
-    name="neuro_k_core",
-    version="0.1",
-    description="Low-level memory control extension",
-    ext_modules=[module],
-)
-
-Python Orchestration Engine (nicho/main_engine.py)
-
-This file:
-
-    simulates memory load
-
-    collects /proc/meminfo telemetry
-
-    attempts nicho_clean() (safe non-root behavior)
-
-    writes benchmark.csv
-
-    generates benchmark.png
-
-import os
+Listing 2 — Orchestration Pipeline (Experimental Skeleton)
 import time
-import csv
 import numpy as np
-import matplotlib.pyplot as plt
-import neuro_k_core
+
+try:
+    import neuro_k_core
+except Exception:
+    neuro_k_core = None
 
 
-def simulate_memory_load(size_mb: int = 300) -> np.ndarray:
-    # float32 ~ 4 bytes; allocation size is approximate
-    print(f"[INFO] Allocating ~{size_mb}MB of memory...")
+def simulate_memory_pressure(size_mb: int = 300) -> np.ndarray:
     arr = np.ones((size_mb * 250_000,), dtype=np.float32)
-    time.sleep(1.5)
+    time.sleep(1.0)
     return arr
 
 
-def collect_telemetry() -> dict:
+def read_memavailable_kb() -> int:
     with open("/proc/meminfo", "r", encoding="utf-8") as f:
-        lines = f.readlines()
-
-    meminfo = {}
-    for line in lines:
-        if ":" not in line:
-            continue
-        key, value = line.split(":", 1)
-        meminfo[key.strip()] = value.strip()
-
-    return meminfo
+        for line in f:
+            if line.startswith("MemAvailable:"):
+                return int(line.split()[1])
+    return 0
 
 
-def parse_kb(value: str) -> int:
-    # Example: "1850000 kB"
+def safe_cleanup() -> bool:
+    if neuro_k_core is None:
+        return False
     try:
-        return int(value.split()[0])
+        return bool(neuro_k_core.nicho_clean())
     except Exception:
-        return 0
+        return False
 
 
-def save_csv(result: dict) -> None:
-    os.makedirs("results", exist_ok=True)
-    path = "results/benchmark.csv"
+def run_experiment():
+    arr = simulate_memory_pressure(300)
 
-    with open(path, "w", newline="", encoding="utf-8") as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=result.keys())
+    before = read_memavailable_kb()
+    cleaned = safe_cleanup()
+    after = read_memavailable_kb()
+
+    del arr
+
+    return {
+        "clean_executed": cleaned,
+        "before_kb": before,
+        "after_kb": after
+    }
+
+Listing 3 — Reproducible Output & Visualization
+import os
+import csv
+import matplotlib.pyplot as plt
+
+
+def save_csv(result: dict, out_dir="results"):
+    os.makedirs(out_dir, exist_ok=True)
+    path = os.path.join(out_dir, "benchmark.csv")
+
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=result.keys())
         writer.writeheader()
         writer.writerow(result)
 
-    print(f"[INFO] Benchmark saved to {path}")
+    return path
 
 
-def generate_graph(before_kb: int, after_kb: int) -> None:
-    os.makedirs("results", exist_ok=True)
-    path = "results/benchmark.png"
-
-    labels = ["Before", "After"]
-    values = [before_kb, after_kb]
+def save_plot(before_kb: int, after_kb: int, out_dir="results"):
+    os.makedirs(out_dir, exist_ok=True)
+    path = os.path.join(out_dir, "benchmark.png")
 
     plt.figure()
-    plt.bar(labels, values)
+    plt.bar(["Before", "After"], [before_kb, after_kb])
     plt.xlabel("Stage")
     plt.ylabel("MemAvailable (kB)")
     plt.title("NEURO-K Memory Benchmark")
     plt.savefig(path)
     plt.close()
 
-    print(f"[INFO] Graph saved to {path}")
+    return path
 
+Algorithm 1 — NEURO-K Experimental Workflow
+Input: pressure_mb
+Output: (before_kb, after_kb, clean_executed)
 
-def run_benchmark() -> None:
-    arr = simulate_memory_load(300)
+1. Allocate pressure_mb to simulate memory load
+2. Capture MemAvailable (before)
+3. If running as root:
+       execute controlled cache drop
+   Else:
+       skip safely
+4. Capture MemAvailable (after)
+5. Persist results (CSV)
+6. Generate benchmark graph
 
-    mem_before = collect_telemetry()
-    cleaned = bool(neuro_k_core.nicho_clean())
-    mem_after = collect_telemetry()
+Experimental Characteristics
 
-    before_kb = parse_kb(mem_before.get("MemAvailable", "0 kB"))
-    after_kb = parse_kb(mem_after.get("MemAvailable", "0 kB"))
+Linux-based telemetry model
 
-    result = {
-        "clean_executed": cleaned,
-        "mem_available_before_kb": before_kb,
-        "mem_available_after_kb": after_kb,
-    }
+Privilege-aware execution design
 
-    save_csv(result)
-    generate_graph(before_kb, after_kb)
+Hybrid C/Python integration concept
 
-    # free memory
-    del arr
-    print("[INFO] Benchmark completed.")
+Reproducible benchmark artifacts
 
+Safe fallback logic under non-root execution
 
-if __name__ == "__main__":
-    run_benchmark()
+Limitations
 
-Research Notes
+Linux-specific implementation
 
-This project explores:
+Cache drop is intrusive and experimental
 
-    Memory pressure simulation
+Memory load is synthetic
 
-    Hybrid low-level/high-level orchestration
+No container-awareness
 
-    System telemetry integration
+Cloud offloading remains conceptual
 
-    Safe privilege-aware execution
+Future Directions
 
-Future iterations may include:
+Adaptive threshold policies
 
-    Cloud-based offload triggers
+Predictive memory modeling
 
-    Adaptive thresholds
+Container telemetry integration
 
-    ML-based decision layer
+Distributed system coordination
 
-    Distributed memory monitoring
+ML-based pressure classification
 
 Status
 
 Experimental
 Research Prototype
-Actively evolving
+Architecture Study
+
 Author
 
 Matheus Boeira Pedroso
