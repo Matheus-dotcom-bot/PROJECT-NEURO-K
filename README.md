@@ -2,7 +2,6 @@
 
 **Systems Engineering Experiment: Hybrid Local Memory Control + Cloud Offloading Strategy**
 
-![CI](https://github.com/Matheus-dotcom-bot/PROJECT-NEURO-K/actions/workflows/ci.yml/badge.svg)
 
 ---
 
