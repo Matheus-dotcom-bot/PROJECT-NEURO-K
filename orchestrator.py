@@ -8,8 +8,10 @@ ZeroMQ; control messages use small JSON metadata only.
 from __future__ import annotations
 
 import argparse
+import csv
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 import psutil
@@ -19,7 +21,7 @@ import zmq
 @dataclass
 class Calibration:
     local_seconds: float
-    worker_seconds: float
+    worker_compute_seconds: float
     bandwidth_bytes_per_second: float
     rtt_seconds: float
 
@@ -62,31 +64,35 @@ class NeuroKOrchestrator:
             t0 = time.perf_counter()
             socket.send_json({"op": "matmul", "n": n, "dtype": str(dtype)})
             ready = socket.recv_json()
+            t_control = time.perf_counter() - t0
             if not ready.get("ok"):
                 raise RuntimeError(ready.get("error", "worker rejected request"))
-            t_control = time.perf_counter() - t0
 
             a_bytes = np.ascontiguousarray(a).tobytes()
             b_bytes = np.ascontiguousarray(b).tobytes()
 
             t0 = time.perf_counter()
             socket.send(a_bytes)
-            socket.recv_json()
+            ack_a = socket.recv_json()
             t_send_a = time.perf_counter() - t0
+            if not ack_a.get("ok"):
+                raise RuntimeError(ack_a.get("error", "worker rejected A"))
 
             t0 = time.perf_counter()
             socket.send(b_bytes)
-            socket.recv_json()
-            t_send_b = time.perf_counter() - t0
-
-            t0 = time.perf_counter()
             meta = socket.recv_json()
-            t_wait_result_meta = time.perf_counter() - t0
+            t_send_b = time.perf_counter() - t0
+            if not meta.get("ok"):
+                raise RuntimeError(meta.get("error", "worker rejected B"))
 
             socket.send_string("SEND_RESULT")
             t0 = time.perf_counter()
             result_bytes = socket.recv()
             t_receive_c = time.perf_counter() - t0
+
+            expected = self.matrix_bytes(n, dtype)
+            if len(result_bytes) != expected:
+                raise RuntimeError("worker returned an invalid result size")
 
             c = np.frombuffer(result_bytes, dtype=dtype).reshape(n, n)
 
@@ -95,7 +101,6 @@ class NeuroKOrchestrator:
                 "t_control": t_control,
                 "t_send_a": t_send_a,
                 "t_send_b": t_send_b,
-                "t_wait_result_meta": t_wait_result_meta,
                 "t_receive_c": t_receive_c,
                 "t_remote_deserialize": meta["t_deserialize"],
                 "t_remote_compute": meta["t_compute"],
@@ -105,12 +110,14 @@ class NeuroKOrchestrator:
             socket.close()
 
     def calibrate(self, n: int = 128, repetitions: int = 3) -> Calibration:
+        if repetitions < 1:
+            raise ValueError("repetitions must be >= 1")
+
         dtype = np.dtype(np.float64)
         a = np.random.default_rng(0).random((n, n), dtype=np.float64)
         b = np.random.default_rng(1).random((n, n), dtype=np.float64)
 
-        # Warm-up local BLAS.
-        np.matmul(a, b)
+        np.matmul(a, b)  # warm-up local BLAS
 
         local_times = []
         for _ in range(repetitions):
@@ -118,20 +125,16 @@ class NeuroKOrchestrator:
             np.matmul(a, b)
             local_times.append(time.perf_counter() - t0)
 
-        remote_times = []
+        worker_compute_times = []
         transfer_rates = []
         rtts = []
 
         for _ in range(repetitions):
-            t0 = time.perf_counter()
             result = self._remote_once(n, dtype, a, b)
-            total = time.perf_counter() - t0
-            remote_times.append(total)
+            worker_compute_times.append(result["t_remote_compute"])
 
             payload = len(a.tobytes()) + len(b.tobytes()) + len(result["C"].tobytes())
-            transfer_time = (
-                result["t_send_a"] + result["t_send_b"] + result["t_receive_c"]
-            )
+            transfer_time = result["t_send_a"] + result["t_send_b"] + result["t_receive_c"]
             if transfer_time > 0:
                 transfer_rates.append(payload / transfer_time)
 
@@ -139,7 +142,7 @@ class NeuroKOrchestrator:
 
         self.calibration = Calibration(
             local_seconds=float(np.median(local_times)),
-            worker_seconds=float(np.median(remote_times)),
+            worker_compute_seconds=float(np.median(worker_compute_times)),
             bandwidth_bytes_per_second=float(np.median(transfer_rates)),
             rtt_seconds=float(np.median(rtts)),
         )
@@ -153,11 +156,9 @@ class NeuroKOrchestrator:
         if self.available_memory() < int(required * 1.2):
             return True, "RAM_PRESSURE"
 
-        # Scale the measured compute time approximately by N^3. This is a
-        # prediction, not a claim that matmul is exactly linear in N^3.
         scale = (n / 128.0) ** 3
         local_est = self.calibration.local_seconds * scale
-        remote_compute_est = self.calibration.worker_seconds * scale
+        remote_compute_est = self.calibration.worker_compute_seconds * scale
 
         payload = self.matrix_bytes(n, dtype) * 3
         transfer_est = payload / max(self.calibration.bandwidth_bytes_per_second, 1.0)
@@ -175,11 +176,7 @@ class NeuroKOrchestrator:
         a = rng.random((n, n)).astype(dtype, copy=False)
         b = rng.random((n, n)).astype(dtype, copy=False)
 
-        # If RAM pressure is the reason, allocating a complete local C is not
-        # safe. For a controlled benchmark, use the normal baseline only when
-        # memory permits it.
         local_available = self.available_memory() >= int(self.required_bytes(n, dtype) * 1.2)
-
         t_local = None
         c_local = None
         if local_available:
@@ -224,10 +221,46 @@ class NeuroKOrchestrator:
         }
 
 
+def append_result(path: Path, result: dict) -> None:
+    fieldnames = [
+        "timestamp", "status", "n", "dtype", "decision", "reason",
+        "t_local_s", "t_serialization_s", "t_send_a_s", "t_send_b_s",
+        "t_remote_deserialize_s", "t_remote_compute_s", "t_remote_serialize_s",
+        "t_receive_c_s", "t_offload_total_s", "gain_percent", "error",
+    ]
+    metrics = result.get("metrics", {})
+    row = {
+        "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "status": "MEASURED",
+        "n": result.get("n"),
+        "dtype": result.get("dtype"),
+        "decision": result.get("decision"),
+        "reason": result.get("reason"),
+        "t_local_s": result.get("t_local"),
+        "t_serialization_s": None,
+        "t_send_a_s": metrics.get("t_send_a"),
+        "t_send_b_s": metrics.get("t_send_b"),
+        "t_remote_deserialize_s": metrics.get("t_remote_deserialize"),
+        "t_remote_compute_s": metrics.get("t_remote_compute"),
+        "t_remote_serialize_s": metrics.get("t_remote_serialize"),
+        "t_receive_c_s": metrics.get("t_receive_c"),
+        "t_offload_total_s": result.get("t_offload_total"),
+        "gain_percent": result.get("gain_percent"),
+        "error": None,
+    }
+    write_header = not path.exists() or path.stat().st_size == 0
+    with path.open("a", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        if write_header:
+            writer.writeheader()
+        writer.writerow(row)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--worker", default="tcp://127.0.0.1:5555")
     parser.add_argument("--sizes", nargs="+", type=int, default=[256, 512, 1024, 2048])
+    parser.add_argument("--results", type=Path, default=Path("benchmark-results.csv"))
     args = parser.parse_args()
 
     orchestrator = NeuroKOrchestrator(args.worker)
@@ -236,9 +269,22 @@ def main() -> None:
         print("Calibration:", calibration)
         for n in args.sizes:
             try:
-                print(orchestrator.benchmark(n))
+                result = orchestrator.benchmark(n)
+                append_result(args.results, result)
+                print(result)
             except Exception as exc:
-                print({"n": n, "error": str(exc)})
+                error = {"n": n, "error": str(exc)}
+                print(error)
+                append_result(
+                    args.results,
+                    {
+                        "n": n,
+                        "dtype": "float64",
+                        "decision": "ERROR",
+                        "reason": "EXECUTION_ERROR",
+                        "error": str(exc),
+                    },
+                )
     finally:
         orchestrator.close()
 
