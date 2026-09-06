@@ -116,9 +116,45 @@ class TestWorkerIntegration(unittest.TestCase):
             process.terminate()
             process.wait(timeout=3)
 
+    def test_worker_rejects_non_integer_matrix_size(self):
+        port = free_port()
+        process = subprocess.Popen(
+            [sys.executable, str(ROOT / "worker.py"), "--host", "127.0.0.1", "--port", str(port)],
+            cwd=ROOT,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        context = zmq.Context()
+        socket_ = context.socket(zmq.REQ)
+        socket_.setsockopt(zmq.RCVTIMEO, 1000)
+        socket_.setsockopt(zmq.SNDTIMEO, 1000)
+        socket_.setsockopt(zmq.LINGER, 0)
+        socket_.connect(f"tcp://127.0.0.1:{port}")
+
+        try:
+            deadline = time.time() + 3
+            while time.time() < deadline:
+                try:
+                    socket_.send_json({"op": "matmul", "n": 4.5, "dtype": "float64"})
+                    response = socket_.recv_json()
+                    break
+                except zmq.Again:
+                    time.sleep(0.05)
+            else:
+                self.fail("worker did not respond")
+
+            self.assertFalse(response["ok"])
+            self.assertIn("n must be an integer", response["error"])
+        finally:
+            socket_.close(0)
+            context.term()
+            process.terminate()
+            process.wait(timeout=3)
+
 
 class TestWorkerValidation(unittest.TestCase):
-    def test_default_memory_limit_is_reasonable_for_poC(self):
+    def test_default_memory_limit_is_reasonable_for_poc(self):
         self.assertEqual(DEFAULT_MAX_MEMORY_BYTES, 512 * 1024 * 1024)
 
     def test_start_worker_rejects_invalid_configuration(self):
