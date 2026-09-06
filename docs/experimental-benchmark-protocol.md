@@ -22,9 +22,26 @@ Não use `127.0.0.1` para o experimento físico. O endereço do worker deve ser 
 
 O PoC não implementa autenticação nem TLS; execute o experimento em uma rede controlada.
 
+### Vercel como baseline separado
+
+A implantação Vercel do projeto deve ser tratada como uma terceira superfície experimental, não como substituta do worker persistente:
+
+```text
+                    HTTP
+HOST LOCAL ───────> VERCEL FUNCTION
+                       │
+                       └── baseline cloud
+
+HOST LOCAL ── ZeroMQ/TCP ──> HOST WORKER
+                              │
+                              └── offload físico
+```
+
+O endpoint `/benchmark` da Vercel mede uma multiplicação executada dentro da função serverless. Ele registra `execution=VERCEL_FUNCTION` e não mede o custo de transporte ZeroMQ. Portanto, seus resultados devem permanecer separados do CSV de offload físico.
+
 ## 2. Controle do ambiente
 
-Registre, para os dois hosts:
+Registre, para os hosts físicos:
 
 - modelo de CPU;
 - número de núcleos físicos e lógicos;
@@ -42,11 +59,13 @@ Registre, para os dois hosts:
 
 O `--metadata` do `orchestrator.py` registra automaticamente parte importante dessas informações, inclusive `threadpool_info()` e variáveis de ambiente relacionadas a threads.
 
+Para a Vercel, preserve também a resposta de `/runtime` junto da campanha cloud quando ela for usada como baseline.
+
 ## 3. Threads do BLAS
 
-Matmul do NumPy pode utilizar OpenBLAS, MKL ou outra implementação BLAS e pode executar com múltiplas threads. A comparação entre máquinas só é interpretável se a política de threads for conhecida e mantida constante. citeturn0search0turn0search6
+Matmul do NumPy pode utilizar OpenBLAS, MKL ou outra implementação BLAS e pode executar com múltiplas threads. A comparação entre máquinas só é interpretável se a política de threads for conhecida e mantida constante.
 
-Para uma comparação inicial controlada, prefira **1 thread de BLAS em ambos os hosts**. Exemplos de variáveis que podem ser relevantes:
+Para uma comparação inicial controlada, prefira **1 thread de BLAS em ambos os hosts físicos**. Exemplos de variáveis que podem ser relevantes:
 
 ```text
 OMP_NUM_THREADS=1
@@ -60,7 +79,7 @@ A variável exata depende do backend instalado. Não presuma que todas têm efei
 
 ## 4. Preparação
 
-Em ambos os hosts:
+Em ambos os hosts físicos:
 
 ```bash
 python -m venv .venv
@@ -129,7 +148,7 @@ Uma estratégia simples é executar campanhas separadas e repetir a ordem, por e
 
 Se a campanha crescer, use randomização controlada e registre a semente/ordem.
 
-## 9. Comando de coleta
+## 9. Comando de coleta física
 
 No worker:
 
@@ -151,9 +170,36 @@ python orchestrator.py \
 
 **Atenção:** `0.0.0.0` é apenas o endereço de bind de exemplo para uma rede controlada. Não exponha o worker diretamente à Internet.
 
-## 10. O que o CSV mede
+## 10. Baseline Vercel
 
-Cada linha `MEASURED` representa uma execução.
+A API cloud fornece:
+
+```text
+GET /health
+GET /runtime
+POST /benchmark
+```
+
+Exemplo:
+
+```http
+POST /benchmark
+Content-Type: application/json
+
+{
+  "n": 512,
+  "dtype": "float64",
+  "seed": 0
+}
+```
+
+A resposta registra `status=MEASURED`, `execution=VERCEL_FUNCTION`, `n`, `dtype`, `seed`, `t_compute_s`, checksum e tamanho da matriz.
+
+Execute a campanha Vercel separadamente do benchmark físico. Não misture suas linhas no `benchmark-results.csv` histórico nem no CSV de offload físico sem um campo de origem explicitamente preservado.
+
+## 11. O que o CSV físico mede
+
+Cada linha `MEASURED` representa uma execução real do orquestrador.
 
 O pipeline registra, quando há offload:
 
@@ -170,18 +216,20 @@ O pipeline registra, quando há offload:
 
 Uma decisão `LOCAL` é uma decisão do modelo e não uma medição de offload naquela linha.
 
-## 11. Validação numérica
+Falhas de execução são registradas com `status=ERROR` e não devem ser tratadas como medições válidas.
+
+## 12. Validação numérica
 
 Quando existe uma referência local disponível, o orquestrador compara o resultado remoto com `A @ B` usando `np.allclose`.
 
 Uma campanha com erro de validação, payload inválido ou falha de comunicação deve ser investigada e não deve ser apresentada como resultado de desempenho válido.
 
-## 12. Metadados de rede
+## 13. Metadados de rede
 
 Além do JSON produzido pelo `--metadata`, registre manualmente:
 
 - hosts envolvidos;
-- IPs privados ou identificadores não sensíveis dos hosts;
+- identificadores não sensíveis dos hosts;
 - tipo de conexão;
 - RTT de referência;
 - largura de banda nominal;
@@ -190,15 +238,17 @@ Além do JSON produzido pelo `--metadata`, registre manualmente:
 
 Não inclua credenciais, tokens ou outros segredos nos artefatos.
 
-## 13. Regras para publicação
+## 14. Regras para publicação
 
 Nunca relabel uma linha `SIMULATED` como `MEASURED`.
 
-Uma linha pode ser marcada `MEASURED` somente quando tiver sido produzida por uma execução real do orquestrador.
+Uma linha pode ser marcada `MEASURED` somente quando tiver sido produzida por uma execução real.
 
 Publique o CSV junto com o JSON de metadados correspondente. Se houver alteração de hardware, software, BLAS, configuração de threads ou topologia de rede, trate a coleta como uma nova campanha.
 
-## 14. Interpretação
+Mantenha resultados `VERCEL_FUNCTION` identificados separadamente dos resultados de `ZEROMQ_WORKER`.
+
+## 15. Interpretação
 
 Não conclua que o offload é "mais rápido" a partir de uma única execução.
 
@@ -206,11 +256,13 @@ A pergunta experimental é mais próxima de:
 
 > Para uma determinada configuração de hardware, software, rede, tamanho e dtype, qual é a distribuição observada do custo local e do custo de offload?
 
+O baseline Vercel responde a uma pergunta diferente: qual o tempo de uma execução NumPy dentro do ambiente serverless disponibilizado pela implantação?
+
 A decisão adaptativa do NEURO-K continua sendo uma heurística. O benchmark serve para testar e calibrar essa heurística, não para provar que o offload é universalmente superior.
 
-## 15. Checklist antes da coleta
+## 16. Checklist antes da coleta
 
-- [ ] Dois hosts fisicamente separados.
+- [ ] Dois hosts físicos separados para o experimento ZeroMQ.
 - [ ] Mesmo código/commit identificado nos dois hosts.
 - [ ] Dependências instaladas e `pip check` concluído.
 - [ ] Testes automatizados concluídos.
@@ -220,6 +272,7 @@ A decisão adaptativa do NEURO-K continua sendo uma heurística. O benchmark ser
 - [ ] Número de repetições definido.
 - [ ] Tamanhos e dtypes definidos.
 - [ ] Rede controlada.
+- [ ] Baseline Vercel, se usado, executado como campanha separada.
 - [ ] CSV de saída separado do histórico `SIMULATED`.
 - [ ] JSON de metadados preservado.
 
