@@ -1,0 +1,1 @@
+Execute the ZeroMQ campaign only against a real worker. No measurements are committed by this feature. Use the collector defaults for 80 measured observations and analyze the resulting CSV with the shared benchmark analyzer before any cross-environment comparison.
