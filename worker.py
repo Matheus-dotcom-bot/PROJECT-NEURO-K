@@ -27,28 +27,35 @@ def start_worker(host: str = "*", port: int = 5555) -> None:
                 socket.send_json({"ok": False, "error": "unsupported operation"})
                 continue
 
-            n = int(request["n"])
-            dtype = np.dtype(request["dtype"])
+            try:
+                n = int(request["n"])
+                dtype = np.dtype(request["dtype"])
+            except (KeyError, TypeError, ValueError) as exc:
+                socket.send_json({"ok": False, "error": f"invalid request: {exc}"})
+                continue
 
             if n <= 0 or n > 8192:
                 socket.send_json({"ok": False, "error": "invalid matrix size"})
                 continue
 
-            # ACK is kept explicit so the benchmark can separate protocol
-            # round-trip time from raw payload transfer.
+            expected = n * n * dtype.itemsize
             socket.send_json({"ok": True, "stage": "READY"})
 
             bytes_a = socket.recv()
+            if len(bytes_a) != expected:
+                socket.send_json({"ok": False, "error": "invalid A payload size"})
+                continue
             socket.send_json({"ok": True, "stage": "A_RECEIVED"})
 
             bytes_b = socket.recv()
-            socket.send_json({"ok": True, "stage": "B_RECEIVED"})
-
-            expected = n * n * dtype.itemsize
-            if len(bytes_a) != expected or len(bytes_b) != expected:
-                socket.send_json({"ok": False, "error": "invalid payload size"})
+            if len(bytes_b) != expected:
+                socket.send_json({"ok": False, "error": "invalid B payload size"})
                 continue
 
+            # REP sockets require strict recv/send alternation. After B is
+            # received, compute immediately and send the result metadata as
+            # the response to the B payload; the client then ACKs before the
+            # final binary result is returned.
             t0 = time.perf_counter()
             a = np.frombuffer(bytes_a, dtype=dtype).reshape(n, n)
             b = np.frombuffer(bytes_b, dtype=dtype).reshape(n, n)
@@ -73,10 +80,9 @@ def start_worker(host: str = "*", port: int = 5555) -> None:
                 }
             )
 
-            # Client explicitly acknowledges before the binary result.
             ack = socket.recv_string()
             if ack != "SEND_RESULT":
-                socket.send(b"")
+                socket.send_json({"ok": False, "error": "invalid result acknowledgement"})
                 continue
 
             socket.send(bytes_c)
