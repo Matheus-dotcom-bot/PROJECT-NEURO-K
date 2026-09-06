@@ -260,7 +260,7 @@ def runtime_metadata(worker: str, sizes: list[int], repetitions: int, warmup_run
     }
 
 
-def append_result(path: Path, result: dict) -> None:
+def append_result(path: Path, result: dict, status: str = "MEASURED") -> None:
     fieldnames = [
         "timestamp", "status", "n", "dtype", "decision", "reason",
         "t_local_s", "t_serialization_s", "t_send_a_s", "t_send_b_s",
@@ -270,7 +270,7 @@ def append_result(path: Path, result: dict) -> None:
     metrics = result.get("metrics", {})
     row = {
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "status": "MEASURED",
+        "status": status,
         "n": result.get("n"),
         "dtype": result.get("dtype"),
         "decision": result.get("decision"),
@@ -285,7 +285,7 @@ def append_result(path: Path, result: dict) -> None:
         "t_receive_c_s": metrics.get("t_receive_c"),
         "t_offload_total_s": result.get("t_offload_total"),
         "gain_percent": result.get("gain_percent"),
-        "error": None,
+        "error": result.get("error"),
     }
     write_header = not path.exists() or path.stat().st_size == 0
     with path.open("a", newline="", encoding="utf-8") as handle:
@@ -348,6 +348,7 @@ def main() -> None:
                             "reason": "EXECUTION_ERROR",
                             "error": str(exc),
                         },
+                        status="ERROR",
                     )
     finally:
         orchestrator.close()
