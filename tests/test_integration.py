@@ -28,25 +28,30 @@ class TestWorkerIntegration(unittest.TestCase):
             stderr=subprocess.PIPE,
             text=True,
         )
+        a = np.arange(16, dtype=np.float64).reshape(4, 4)
+        b = np.eye(4, dtype=np.float64)
+        socket_ = None
         context = zmq.Context()
-        socket_ = context.socket(zmq.REQ)
-        socket_.setsockopt(zmq.RCVTIMEO, 3000)
-        socket_.setsockopt(zmq.SNDTIMEO, 3000)
-        socket_.connect(f"tcp://127.0.0.1:{port}")
 
         try:
             deadline = time.time() + 3
-            while True:
+            while time.time() < deadline:
+                candidate = context.socket(zmq.REQ)
+                candidate.setsockopt(zmq.RCVTIMEO, 250)
+                candidate.setsockopt(zmq.SNDTIMEO, 250)
+                candidate.setsockopt(zmq.LINGER, 0)
+                candidate.connect(f"tcp://127.0.0.1:{port}")
                 try:
-                    a = np.arange(16, dtype=np.float64).reshape(4, 4)
-                    b = np.eye(4, dtype=np.float64)
-                    socket_.send_json({"op": "matmul", "n": 4, "dtype": "float64"})
-                    ready = socket_.recv_json()
+                    candidate.send_json({"op": "matmul", "n": 4, "dtype": "float64"})
+                    ready = candidate.recv_json()
+                    socket_ = candidate
                     break
                 except zmq.Again:
-                    if time.time() >= deadline:
-                        self.fail("worker did not become ready")
+                    candidate.close(0)
                     time.sleep(0.05)
+
+            if socket_ is None:
+                self.fail("worker did not become ready")
 
             self.assertTrue(ready["ok"])
             socket_.send(a.tobytes())
@@ -61,7 +66,8 @@ class TestWorkerIntegration(unittest.TestCase):
             c = np.frombuffer(result, dtype=np.float64).reshape(4, 4)
             np.testing.assert_allclose(c, a @ b)
         finally:
-            socket_.close(0)
+            if socket_ is not None:
+                socket_.close(0)
             context.term()
             process.terminate()
             process.wait(timeout=3)
