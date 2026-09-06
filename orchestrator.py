@@ -68,8 +68,10 @@ class NeuroKOrchestrator:
             if not ready.get("ok"):
                 raise RuntimeError(ready.get("error", "worker rejected request"))
 
+            t0 = time.perf_counter()
             a_bytes = np.ascontiguousarray(a).tobytes()
             b_bytes = np.ascontiguousarray(b).tobytes()
+            t_serialization = time.perf_counter() - t0
 
             t0 = time.perf_counter()
             socket.send(a_bytes)
@@ -99,6 +101,7 @@ class NeuroKOrchestrator:
             return {
                 "C": c,
                 "t_control": t_control,
+                "t_serialization": t_serialization,
                 "t_send_a": t_send_a,
                 "t_send_b": t_send_b,
                 "t_receive_c": t_receive_c,
@@ -151,6 +154,8 @@ class NeuroKOrchestrator:
     def predict(self, n: int, dtype=np.dtype(np.float64)) -> tuple[bool, str]:
         if self.calibration is None:
             raise RuntimeError("run calibrate() before predict()")
+        if not isinstance(n, int) or isinstance(n, bool) or n < 1:
+            raise ValueError("n must be a positive integer")
 
         required = self.required_bytes(n, dtype)
         if self.available_memory() < int(required * 1.2):
@@ -211,6 +216,7 @@ class NeuroKOrchestrator:
             "t_offload_total": t_total,
             "gain_percent": None if t_local is None else ((t_local - t_total) / t_local) * 100,
             "metrics": {
+                "t_serialization": remote["t_serialization"],
                 "t_send_a": remote["t_send_a"],
                 "t_send_b": remote["t_send_b"],
                 "t_receive_c": remote["t_receive_c"],
@@ -237,7 +243,7 @@ def append_result(path: Path, result: dict) -> None:
         "decision": result.get("decision"),
         "reason": result.get("reason"),
         "t_local_s": result.get("t_local"),
-        "t_serialization_s": None,
+        "t_serialization_s": metrics.get("t_serialization"),
         "t_send_a_s": metrics.get("t_send_a"),
         "t_send_b_s": metrics.get("t_send_b"),
         "t_remote_deserialize_s": metrics.get("t_remote_deserialize"),
