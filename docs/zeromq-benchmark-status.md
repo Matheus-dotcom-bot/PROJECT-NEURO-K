@@ -1,0 +1,1 @@
+The ZeroMQ collector and runbook are prepared. No benchmark measurements are committed by this change. Physical observations must be produced by an actual worker/orchestrator run and then analyzed separately.
