@@ -21,6 +21,14 @@ T_offload ≈ T_remote_compute + T_transfer + T_RTT
 
 The compute component is extrapolated from calibration using an approximate `O(N³)` scaling rule. This is useful as a PoC heuristic, but it should not be interpreted as a performance model with scientific accuracy.
 
+## Resource limits and network exposure
+
+The worker validates `n`, `dtype`, payload sizes and the estimated A+B+C working set before accepting matrix data. The default working-set limit is 512 MiB and can be changed with `--max-memory-mb` for controlled experiments.
+
+The worker binds to `127.0.0.1` by default. Binding to a non-loopback interface is an explicit deployment decision. The PoC does not provide authentication, authorization or TLS, so it should not be exposed directly to an untrusted network.
+
+These controls improve robustness against accidental oversized requests; they are **not a complete security boundary**.
+
 ## Local smoke benchmark
 
 For a quick end-to-end validation:
