@@ -2,6 +2,10 @@
 
 Binary NumPy buffers are transported through ZeroMQ. No root privileges
 or HTTP/JSON payloads are required for matrix data.
+
+The worker is intentionally conservative: it validates the request before
+allocating matrix buffers and defaults to loopback so a development instance
+is not accidentally exposed on the network.
 """
 
 from __future__ import annotations
@@ -14,9 +18,23 @@ import zmq
 
 
 SUPPORTED_DTYPES = {"float32", "float64"}
+DEFAULT_MAX_MEMORY_BYTES = 512 * 1024 * 1024
+DEFAULT_MAX_N = 8192
 
 
-def start_worker(host: str = "*", port: int = 5555) -> None:
+def start_worker(
+    host: str = "127.0.0.1",
+    port: int = 5555,
+    max_memory_bytes: int = DEFAULT_MAX_MEMORY_BYTES,
+    max_n: int = DEFAULT_MAX_N,
+) -> None:
+    if not 1 <= port <= 65535:
+        raise ValueError("port must be between 1 and 65535")
+    if max_memory_bytes <= 0:
+        raise ValueError("max_memory_bytes must be positive")
+    if max_n <= 0:
+        raise ValueError("max_n must be positive")
+
     context = zmq.Context()
     socket = context.socket(zmq.REP)
     socket.setsockopt(zmq.LINGER, 0)
@@ -25,8 +43,13 @@ def start_worker(host: str = "*", port: int = 5555) -> None:
 
     try:
         while True:
-            request = socket.recv_json()
-            if request.get("op") != "matmul":
+            try:
+                request = socket.recv_json()
+            except (TypeError, ValueError) as exc:
+                socket.send_json({"ok": False, "error": f"invalid JSON request: {exc}"})
+                continue
+
+            if not isinstance(request, dict) or request.get("op") != "matmul":
                 socket.send_json({"ok": False, "error": "unsupported operation"})
                 continue
 
@@ -38,14 +61,22 @@ def start_worker(host: str = "*", port: int = 5555) -> None:
                 socket.send_json({"ok": False, "error": f"invalid request: {exc}"})
                 continue
 
-            if n <= 0 or n > 8192:
+            if n <= 0 or n > max_n:
                 socket.send_json({"ok": False, "error": "invalid matrix size"})
                 continue
             if dtype_name not in SUPPORTED_DTYPES:
                 socket.send_json({"ok": False, "error": "unsupported dtype"})
                 continue
 
+            # Validate the full A+B+C working set before accepting the request.
+            # This prevents a remote caller from forcing an unexpectedly large
+            # allocation even when n itself is below max_n.
             expected = n * n * dtype.itemsize
+            required = expected * 3
+            if required > max_memory_bytes:
+                socket.send_json({"ok": False, "error": "matrix exceeds worker memory limit"})
+                continue
+
             socket.send_json({"ok": True, "stage": "READY"})
 
             bytes_a = socket.recv()
@@ -96,7 +127,14 @@ def start_worker(host: str = "*", port: int = 5555) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--host", default="*")
+    parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=5555)
+    parser.add_argument("--max-memory-mb", type=int, default=DEFAULT_MAX_MEMORY_BYTES // (1024 * 1024))
+    parser.add_argument("--max-n", type=int, default=DEFAULT_MAX_N)
     args = parser.parse_args()
-    start_worker(args.host, args.port)
+    start_worker(
+        args.host,
+        args.port,
+        max_memory_bytes=args.max_memory_mb * 1024 * 1024,
+        max_n=args.max_n,
+    )
