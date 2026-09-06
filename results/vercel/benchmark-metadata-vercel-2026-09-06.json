@@ -1,0 +1,33 @@
+{
+  "dtypes": [
+    "float32",
+    "float64"
+  ],
+  "execution": "VERCEL_FUNCTION",
+  "health": {
+    "numpy": "2.5.2",
+    "python": "3.12.13",
+    "service": "neuro-k-api",
+    "status": "healthy"
+  },
+  "repetitions": 10,
+  "runtime": {
+    "available_memory_bytes": 2165202944,
+    "cpu_count": 2,
+    "machine": "x86_64",
+    "numpy": "2.5.2",
+    "platform": "Linux-5.10.255-262-303.1063.amzn2.x86_64-x86_64-with-glibc2.34",
+    "processor": "x86_64",
+    "python": "3.12.13"
+  },
+  "seed": 0,
+  "sizes": [
+    256,
+    512,
+    1024,
+    2048
+  ],
+  "timestamp_utc": "2026-09-06T02:35:47.459889+00:00",
+  "vercel_url": "https://project-neuro-k.vercel.app",
+  "warmup_runs": 3
+}
