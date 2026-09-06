@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NEURO-K · Simulation Dashboard</title>
+<style>
+:root{--bg:#070a12;--panel:#0d1220;--panel2:#111827;--line:#202a3b;--text:#edf2f7;--muted:#8491a7;--cyan:#55d6ff;--violet:#9b8cff;--green:#58d68d;--amber:#ffc857;--danger:#ff6b7a;--shadow:0 18px 60px rgba(0,0,0,.28)}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 80% -10%,#15223d 0,#070a12 42%);color:var(--text);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}main{max-width:1440px;margin:auto;padding:32px}.top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:28px}.brand{display:flex;gap:14px;align-items:center}.mark{width:46px;height:46px;border:1px solid #35506c;border-radius:14px;display:grid;place-items:center;color:var(--cyan);font-weight:800;letter-spacing:-1px;background:#0b1423;box-shadow:0 0 30px #15304a}.eyebrow{text-transform:uppercase;letter-spacing:.18em;font-size:11px;color:var(--cyan);font-weight:700}.title{font-size:30px;font-weight:800;letter-spacing:-.04em;margin:2px 0}.sub{color:var(--muted)}.badge{padding:8px 12px;border:1px solid #5d4b21;background:#1d1708;color:var(--amber);border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.card,.panel{background:linear-gradient(145deg,rgba(17,24,39,.92),rgba(10,15,26,.92));border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}.card{padding:18px}.label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.12em}.value{font-size:28px;font-weight:800;margin-top:6px}.hint{font-size:12px;color:var(--muted);margin-top:4px}.layout{display:grid;grid-template-columns:1.55fr 1fr;gap:14px;margin-top:14px}.panel{padding:20px}.panel h2{font-size:15px;margin:0 0 4px}.panel p{color:var(--muted);font-size:12px;margin:0 0 18px}.chart{height:330px;position:relative}.chart svg{width:100%;height:100%;overflow:visible}.legend{display:flex;gap:18px;font-size:12px;color:var(--muted);margin-top:8px}.dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:6px}.cyan{background:var(--cyan)}.violet{background:var(--violet)}.table-wrap{overflow:auto}.data{width:100%;border-collapse:collapse;font-size:12px}.data th{text-align:left;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.08em;padding:10px;border-bottom:1px solid var(--line)}.data td{padding:12px 10px;border-bottom:1px solid #172033;white-space:nowrap}.data tr:last-child td{border:0}.num{font-variant-numeric:tabular-nums}.pill{border-radius:999px;padding:4px 8px;font-size:10px;font-weight:700}.pill.f32{background:#0e2b32;color:var(--cyan)}.pill.f64{background:#211a3b;color:#c2b8ff}.decision{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}.decision .box{padding:14px;border:1px solid var(--line);border-radius:14px;background:#0a0f1a}.n{color:var(--muted);font-size:11px}.winner{font-weight:800;font-size:17px;margin:7px 0;color:var(--green)}.mini{font-size:11px;color:var(--muted)}.bar{height:7px;background:#1a2231;border-radius:10px;overflow:hidden;margin-top:9px}.bar i{display:block;height:100%;border-radius:10px;background:linear-gradient(90deg,var(--cyan),var(--violet))}.footer{color:#657187;font-size:11px;margin-top:18px;display:flex;justify-content:space-between;gap:12px}.full{grid-column:1/-1}@media(max-width:900px){main{padding:18px}.grid{grid-template-columns:repeat(2,1fr)}.layout{grid-template-columns:1fr}.decision{grid-template-columns:repeat(2,1fr)}}@media(max-width:560px){.top{display:block}.badge{display:inline-block;margin-top:15px}.grid{grid-template-columns:1fr}.decision{grid-template-columns:1fr}.title{font-size:25px}}
+</style>
+</head>
+<body>
+<main>
+<header class="top"><div class="brand"><div class="mark">NK</div><div><div class="eyebrow">PROJECT-NEURO-K / RESULTS</div><div class="title">Simulation Performance Console</div><div class="sub">Vercel Function · matrix multiplication · 10 samples per configuration</div></div></div><div class="badge">SIMULATED · NOT PHYSICAL MEASUREMENT</div></header>
+<section class="grid" id="cards"></section>
+<section class="layout">
+<div class="panel"><h2>Compute vs transport</h2><p>Mean seconds · lower is better · Vercel Function dataset</p><div class="chart" id="chart"></div><div class="legend"><span><i class="dot cyan"></i>Compute</span><span><i class="dot violet"></i>Transport</span></div></div>
+<div class="panel"><h2>Transport overhead</h2><p>Mean overhead as percentage of transport time</p><div id="overhead"></div></div>
+<div class="panel full"><h2>Adaptive decision view</h2><p>Conceptual selector: compare the measured execution paths available to the dashboard. This dataset contains Vercel measurements only, so no ZeroMQ winner is fabricated.</p><div class="decision" id="decision"></div></div>
+<div class="panel full"><h2>Measurement matrix</h2><p>All supplied rows, preserved without synthetic values.</p><div class="table-wrap"><table class="data"><thead><tr><th>N</th><th>Dtype</th><th>Samples</th><th>Errors</th><th>Compute mean</th><th>Compute p95</th><th>Transport mean</th><th>Transport p95</th><th>Overhead</th><th>Overhead %</th></tr></thead><tbody id="rows"></tbody></table></div></div>
+</section>
+<div class="footer"><span>Source: supplied NEURO-K simulation summary · 8 configurations · 80 samples</span><span>Dashboard is static and deployable with the repository</span></div>
+</main>
+<script>
+const data=[
+{n:256,d:'float32',s:10,e:0,c:.000253680,cp:.000263268,t:.108503198,tp:.128554277,o:.108249518,op:99.766199980},
+{n:256,d:'float64',s:10,e:0,c:.000520556,cp:.000520643,t:.097364454,tp:.105526487,o:.096843897,op:99.465352825},
+{n:512,d:'float32',s:10,e:0,c:.001897405,cp:.001900319,t:.104667044,tp:.107955175,o:.102769640,op:98.187199315},
+{n:512,d:'float64',s:10,e:0,c:.003795296,cp:.003795450,t:.121907198,tp:.141518935,o:.118111902,op:96.886733469},
+{n:1024,d:'float32',s:10,e:0,c:.023137313,cp:.023138991,t:.165713232,tp:.191382071,o:.142575918,op:86.037739358},
+{n:1024,d:'float64',s:10,e:0,c:.081254395,cp:.081254404,t:.281775291,tp:.297085935,o:.200520896,op:71.163406720},
+{n:2048,d:'float32',s:10,e:0,c:.330787613,cp:.330794223,t:.831518829,tp:.971055635,o:.500731216,op:60.218866825},
+{n:2048,d:'float64',s:10,e:0,c:.433099197,cp:.433099796,t:1.128182265,tp:1.400958873,o:.695083068,op:61.610884111}
+];
+const f=(x,n=3)=>Number(x).toFixed(n), ms=x=>f(x*1000,2)+' ms';
+document.getElementById('cards').innerHTML=`<div class="card"><div class="label">Configurations</div><div class="value">${data.length}</div><div class="hint">4 matrix sizes × 2 dtypes</div></div><div class="card"><div class="label">Samples</div><div class="value">${data.reduce((a,x)=>a+x.s,0)}</div><div class="hint">0 errors reported</div></div><div class="card"><div class="label">Fastest compute</div><div class="value">${ms(Math.min(...data.map(x=>x.c)))}</div><div class="hint">N=256 · float32</div></div><div class="card"><div class="label">Highest transport</div><div class="value">${f(Math.max(...data.map(x=>x.t)),3)} s</div><div class="hint">N=2048 · float64</div></div>`;
+const maxT=Math.max(...data.map(x=>x.t)), W=760,H=300,L=58,R=18,T=20,B=44, innerW=W-L-R,innerH=H-T-B, ns=[256,512,1024,2048];
+const x=i=>L+i*innerW/3, y=v=>T+innerH-(v/maxT)*innerH;
+let svg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Compute and transport mean by matrix size"><line x1="${L}" y1="${T}" x2="${L}" y2="${H-B}" stroke="#263247"/><line x1="${L}" y1="${H-B}" x2="${W-R}" y2="${H-B}" stroke="#263247"/>`;
+[0,.25,.5,.75,1].forEach(q=>{let yy=T+innerH*(1-q);svg+=`<line x1="${L}" y1="${yy}" x2="${W-R}" y2="${yy}" stroke="#172033"/><text x="${L-9}" y="${yy+4}" fill="#66748a" font-size="10" text-anchor="end">${f(maxT*q,2)}s</text>`});
+function path(vals){return vals.map((v,i)=>(i?'L':'M')+x(i)+' '+y(v)).join(' ')}
+const c32=ns.map(n=>data.find(d=>d.n===n&&d.d==='float32').c),t32=ns.map(n=>data.find(d=>d.n===n&&d.d==='float32').t),c64=ns.map(n=>data.find(d=>d.n===n&&d.d==='float64').c),t64=ns.map(n=>data.find(d=>d.n===n&&d.d==='float64').t);
+[[c32,'#55d6ff'],[t32,'#9b8cff'],[c64,'#55d6ff'],[t64,'#9b8cff']].forEach(([v,col],j)=>{svg+=`<path d="${path(v)}" fill="none" stroke="${col}" stroke-width="${j<2?3:1.5}" stroke-dasharray="${j<2?'':'5 5'}" opacity="${j<2?1:.55}"/>`;v.forEach((z,i)=>svg+=`<circle cx="${x(i)}" cy="${y(z)}" r="${j<2?4:3}" fill="${col}" opacity="${j<2?1:.65}"/>`)});
+ns.forEach((n,i)=>svg+=`<text x="${x(i)}" y="${H-15}" fill="#8491a7" font-size="11" text-anchor="middle">N=${n}</text>`);svg+='</svg>';document.getElementById('chart').innerHTML=svg;
+document.getElementById('overhead').innerHTML=data.map(d=>`<div style="margin:13px 0"><div style="display:flex;justify-content:space-between"><span>${d.n} · ${d.d}</span><strong>${f(d.op,1)}%</strong></div><div class="bar"><i style="width:${d.op}%"></i></div></div>`).join('');
+document.getElementById('decision').innerHTML=ns.map(n=>{let rows=data.filter(d=>d.n===n);let best=rows.reduce((a,b)=>a.c<b.c?a:b);return `<div class="box"><div class="n">MATRIX SIZE</div><div class="winner">Vercel</div><div class="mini">${n} · fastest supplied compute: ${best.d}</div><div class="mini">${ms(best.c)} compute</div></div>`}).join('');
+document.getElementById('rows').innerHTML=data.map(d=>`<tr><td class="num"><strong>${d.n}</strong></td><td><span class="pill ${d.d==='float32'?'f32':'f64'}">${d.d}</span></td><td>${d.s}</td><td>${d.e===0?'✓':'✕'}</td><td class="num">${f(d.c,9)} s</td><td class="num">${f(d.cp,9)} s</td><td class="num">${f(d.t,9)} s</td><td class="num">${f(d.tp,9)} s</td><td class="num">${f(d.o,9)} s</td><td class="num">${f(d.op,2)}%</td></tr>`).join('');
+</script>
+</body>
+</html>
