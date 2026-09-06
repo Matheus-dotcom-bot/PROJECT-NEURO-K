@@ -17,6 +17,9 @@ on:
         required: false
         default: "3"
         type: string
+  push:
+    paths:
+      - ".github/workflows/vercel-benchmark-trigger.txt"
 
 jobs:
   benchmark:
@@ -31,11 +34,22 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Resolve benchmark configuration
+        id: config
+        env:
+          INPUT_URL: ${{ inputs.vercel_url }}
+          INPUT_REPETITIONS: ${{ inputs.repetitions }}
+          INPUT_WARMUPS: ${{ inputs.warmup_runs }}
+        run: |
+          echo "url=${INPUT_URL:-https://project-neuro-k.vercel.app}" >> "$GITHUB_OUTPUT"
+          echo "repetitions=${INPUT_REPETITIONS:-10}" >> "$GITHUB_OUTPUT"
+          echo "warmups=${INPUT_WARMUPS:-3}" >> "$GITHUB_OUTPUT"
+
       - name: Run Vercel benchmark
         env:
-          VERCEL_URL: ${{ inputs.vercel_url }}
-          REPETITIONS: ${{ inputs.repetitions }}
-          WARMUPS: ${{ inputs.warmup_runs }}
+          VERCEL_URL: ${{ steps.config.outputs.url }}
+          REPETITIONS: ${{ steps.config.outputs.repetitions }}
+          WARMUPS: ${{ steps.config.outputs.warmups }}
         run: |
           python scripts/benchmark_vercel.py \
             --url "$VERCEL_URL" \
