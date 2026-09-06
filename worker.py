@@ -13,6 +13,9 @@ import numpy as np
 import zmq
 
 
+SUPPORTED_DTYPES = {"float32", "float64"}
+
+
 def start_worker(host: str = "*", port: int = 5555) -> None:
     context = zmq.Context()
     socket = context.socket(zmq.REP)
@@ -29,13 +32,17 @@ def start_worker(host: str = "*", port: int = 5555) -> None:
 
             try:
                 n = int(request["n"])
-                dtype = np.dtype(request["dtype"])
+                dtype_name = str(request["dtype"])
+                dtype = np.dtype(dtype_name)
             except (KeyError, TypeError, ValueError) as exc:
                 socket.send_json({"ok": False, "error": f"invalid request: {exc}"})
                 continue
 
             if n <= 0 or n > 8192:
                 socket.send_json({"ok": False, "error": "invalid matrix size"})
+                continue
+            if dtype_name not in SUPPORTED_DTYPES:
+                socket.send_json({"ok": False, "error": "unsupported dtype"})
                 continue
 
             expected = n * n * dtype.itemsize
@@ -52,10 +59,6 @@ def start_worker(host: str = "*", port: int = 5555) -> None:
                 socket.send_json({"ok": False, "error": "invalid B payload size"})
                 continue
 
-            # REP sockets require strict recv/send alternation. After B is
-            # received, compute immediately and send the result metadata as
-            # the response to the B payload; the client then ACKs before the
-            # final binary result is returned.
             t0 = time.perf_counter()
             a = np.frombuffer(bytes_a, dtype=dtype).reshape(n, n)
             b = np.frombuffer(bytes_b, dtype=dtype).reshape(n, n)
