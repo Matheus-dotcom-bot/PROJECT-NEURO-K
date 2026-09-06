@@ -7,17 +7,20 @@ and do not provide a persistent TCP worker endpoint.
 
 from __future__ import annotations
 
+from pathlib import Path
 import platform
 import time
 
 import numpy as np
 import psutil
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 
 SUPPORTED_DTYPES = {"float32": np.float32, "float64": np.float64}
 MAX_N = 2048
+DASHBOARD_PATH = Path(__file__).resolve().parent.parent / "dashboard.html"
 
 app = FastAPI(
     title="PROJECT-NEURO-K",
@@ -40,8 +43,18 @@ def root():
         "service": "Vercel API",
         "architecture": "FastAPI serverless baseline",
         "benchmark_endpoint": "/benchmark",
+        "dashboard_endpoint": "/dashboard.html",
         "zeromq_worker": "separate persistent process required",
     }
+
+
+@app.get("/dashboard.html", include_in_schema=False)
+@app.get("/dashboard", include_in_schema=False)
+def dashboard():
+    """Serve the static simulation dashboard through the FastAPI function."""
+    if not DASHBOARD_PATH.is_file():
+        raise HTTPException(status_code=404, detail="dashboard.html not found")
+    return FileResponse(DASHBOARD_PATH, media_type="text/html")
 
 
 @app.get("/health")
