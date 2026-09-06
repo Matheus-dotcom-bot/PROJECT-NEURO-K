@@ -35,9 +35,17 @@ def start_worker(
     if max_n <= 0:
         raise ValueError("max_n must be positive")
 
+    # A single matrix operand is limited to one third of the configured
+    # working-set budget (A + B + C). This rejects oversized ZeroMQ frames
+    # before the application receives them.
+    max_message_bytes = max_memory_bytes // 3
+    if max_message_bytes <= 0:
+        raise ValueError("max_memory_bytes is too small")
+
     context = zmq.Context()
     socket = context.socket(zmq.REP)
     socket.setsockopt(zmq.LINGER, 0)
+    socket.setsockopt(zmq.MAXMSGSIZE, max_message_bytes)
     socket.bind(f"tcp://{host}:{port}")
     print(f"[NEURO-K] worker listening on tcp://{host}:{port}")
 
@@ -54,7 +62,10 @@ def start_worker(
                 continue
 
             try:
-                n = int(request["n"])
+                raw_n = request["n"]
+                if isinstance(raw_n, bool) or not isinstance(raw_n, int):
+                    raise ValueError("n must be an integer")
+                n = raw_n
                 dtype_name = str(request["dtype"])
                 dtype = np.dtype(dtype_name)
             except (KeyError, TypeError, ValueError) as exc:
