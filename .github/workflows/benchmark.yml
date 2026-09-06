@@ -31,19 +31,32 @@ jobs:
       - name: Run reproducible smoke benchmark
         run: |
           mkdir -p artifacts
-          python orchestrator.py --worker tcp://127.0.0.1:5555 --sizes 64 128 256 --results artifacts/benchmark-results.csv
+          python orchestrator.py \
+            --worker tcp://127.0.0.1:5555 \
+            --sizes 64 128 256 \
+            --repetitions 3 \
+            --warmup-runs 1 \
+            --results artifacts/benchmark-results.csv \
+            --metadata artifacts/benchmark-metadata.json
       - name: Validate benchmark output
         run: |
           python - <<'PY'
           import csv
+          import json
           from pathlib import Path
 
           path = Path("artifacts/benchmark-results.csv")
+          metadata_path = Path("artifacts/benchmark-metadata.json")
           rows = list(csv.DictReader(path.open(encoding="utf-8")))
-          assert len(rows) == 3, rows
+          metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+          assert len(rows) == 9, rows
           assert all(row["status"] == "MEASURED" for row in rows), rows
           assert all(row["error"] in ("", None) for row in rows), rows
-          assert [int(row["n"]) for row in rows] == [64, 128, 256]
+          assert [int(row["n"]) for row in rows] == [64, 64, 64, 128, 128, 128, 256, 256, 256]
+          assert metadata["repetitions"] == 3
+          assert metadata["warmup_runs"] == 1
+          assert metadata["sizes"] == [64, 128, 256]
+          assert metadata["blas_runtime"]
           print(f"Validated {len(rows)} measured benchmark rows")
           PY
       - name: Stop worker
@@ -56,4 +69,5 @@ jobs:
           name: neuro-k-benchmark
           path: |
             artifacts/benchmark-results.csv
+            artifacts/benchmark-metadata.json
             worker.log
