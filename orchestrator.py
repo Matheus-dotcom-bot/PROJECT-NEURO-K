@@ -9,6 +9,9 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
+import os
+import platform
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,6 +19,7 @@ from pathlib import Path
 import numpy as np
 import psutil
 import zmq
+from threadpoolctl import threadpool_info
 
 
 @dataclass
@@ -227,6 +231,35 @@ class NeuroKOrchestrator:
         }
 
 
+def runtime_metadata(worker: str, sizes: list[int], repetitions: int, warmup_runs: int) -> dict:
+    """Capture enough environment information to reproduce a measurement."""
+    return {
+        "timestamp_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "python": platform.python_version(),
+        "platform": platform.platform(),
+        "machine": platform.machine(),
+        "processor": platform.processor(),
+        "cpu_count_logical": psutil.cpu_count(logical=True),
+        "cpu_count_physical": psutil.cpu_count(logical=False),
+        "numpy": np.__version__,
+        "pyzmq": zmq.__version__,
+        "available_memory_bytes_at_start": int(psutil.virtual_memory().available),
+        "blas_runtime": threadpool_info(),
+        "blas_environment": {
+            name: os.environ.get(name)
+            for name in (
+                "OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
+                "BLIS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS", "NUMEXPR_NUM_THREADS",
+            )
+            if os.environ.get(name) is not None
+        },
+        "worker": worker,
+        "sizes": sizes,
+        "repetitions": repetitions,
+        "warmup_runs": warmup_runs,
+    }
+
+
 def append_result(path: Path, result: dict) -> None:
     fieldnames = [
         "timestamp", "status", "n", "dtype", "decision", "reason",
@@ -267,30 +300,55 @@ def main() -> None:
     parser.add_argument("--worker", default="tcp://127.0.0.1:5555")
     parser.add_argument("--sizes", nargs="+", type=int, default=[256, 512, 1024, 2048])
     parser.add_argument("--results", type=Path, default=Path("benchmark-results.csv"))
+    parser.add_argument("--metadata", type=Path, default=None)
+    parser.add_argument("--repetitions", type=int, default=1)
+    parser.add_argument("--warmup-runs", type=int, default=1)
     args = parser.parse_args()
+
+    if args.repetitions < 1:
+        parser.error("--repetitions must be >= 1")
+    if args.warmup_runs < 0:
+        parser.error("--warmup-runs must be >= 0")
 
     orchestrator = NeuroKOrchestrator(args.worker)
     try:
+        if args.metadata is not None:
+            args.metadata.parent.mkdir(parents=True, exist_ok=True)
+            args.metadata.write_text(
+                json.dumps(
+                    runtime_metadata(args.worker, args.sizes, args.repetitions, args.warmup_runs),
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
         calibration = orchestrator.calibrate()
         print("Calibration:", calibration)
         for n in args.sizes:
-            try:
-                result = orchestrator.benchmark(n)
-                append_result(args.results, result)
-                print(result)
-            except Exception as exc:
-                error = {"n": n, "error": str(exc)}
-                print(error)
-                append_result(
-                    args.results,
-                    {
-                        "n": n,
-                        "dtype": "float64",
-                        "decision": "ERROR",
-                        "reason": "EXECUTION_ERROR",
-                        "error": str(exc),
-                    },
-                )
+            for warmup_index in range(args.warmup_runs):
+                orchestrator.benchmark(n)
+                print(f"Warm-up {warmup_index + 1}/{args.warmup_runs} for N={n}")
+
+            for repetition in range(args.repetitions):
+                try:
+                    result = orchestrator.benchmark(n)
+                    append_result(args.results, result)
+                    print(f"Measurement {repetition + 1}/{args.repetitions}:", result)
+                except Exception as exc:
+                    error = {"n": n, "error": str(exc)}
+                    print(error)
+                    append_result(
+                        args.results,
+                        {
+                            "n": n,
+                            "dtype": "float64",
+                            "decision": "ERROR",
+                            "reason": "EXECUTION_ERROR",
+                            "error": str(exc),
+                        },
+                    )
     finally:
         orchestrator.close()
 
