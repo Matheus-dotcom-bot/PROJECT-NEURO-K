@@ -11,7 +11,7 @@ This repository distinguishes two kinds of data:
 
 ## What is measured
 
-The orchestrator records local execution time, remote compute time, payload transfer components, result reception time, total offload time, and observed gain when a local baseline is available.
+The orchestrator records local execution time, local buffer serialization, operand transfer components, remote deserialization, remote compute time, remote result serialization, result reception time, total offload time, and observed gain when a local baseline is available.
 
 The prediction model is intentionally simple:
 
@@ -61,6 +61,8 @@ Positive values mean the measured offload path was faster than the measured loca
 
 A `LOCAL` decision does not prove that local execution is globally optimal; it only means the calibrated prediction selected the local path.
 
+`SIMULATED` rows are illustrative and must not be used to claim measured speedups, latency, throughput, or hardware performance.
+
 ## Reproducible CI validation
 
 `.github/workflows/benchmark.yml` runs a small benchmark on GitHub-hosted Linux infrastructure and validates that:
@@ -92,3 +94,5 @@ Do not compare a single run from two different environments as if it were a cont
 ## Current repository policy
 
 The tracked `benchmark-results.csv` contains simulated rows from the project's development history. They remain in the repository for provenance and are explicitly marked `SIMULATED`. New real measurements should be appended only when they were actually produced by the benchmark command, or stored as a separate experiment with enough metadata to identify the environment.
+
+When real measurements are added, preserve the original rows and keep `status=MEASURED`. Do not overwrite simulated rows with measured values or relabel historical simulation data.
