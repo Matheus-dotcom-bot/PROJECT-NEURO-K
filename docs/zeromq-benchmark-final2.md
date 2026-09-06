@@ -1,0 +1,1 @@
+The collector is ready for a real ZeroMQ worker. Execute 4 sizes × 2 dtypes × 10 repetitions after warm-up, keep raw data in results/zeromq, and aggregate with the shared analyzer. Do not synthesize measurements or mix environments.
