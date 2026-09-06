@@ -4,13 +4,15 @@
 
 > Projeto de portfólio técnico de Matheus Pedroso, voltado a Engenharia Computacional, arquitetura de sistemas e engenharia de performance.
 
+[![CI](https://github.com/Matheus-dotcom-bot/PROJECT-NEURO-K/actions/workflows/ci.yml/badge.svg)](https://github.com/Matheus-dotcom-bot/PROJECT-NEURO-K/actions/workflows/ci.yml)
+
 ## 🎯 Objetivo
 
 O PROJECT-NEURO-K investiga uma pergunta prática:
 
 > **Quando vale a pena transferir uma carga de álgebra linear de uma máquina local para um worker remoto?**
 
-A implementação atual usa um **worker remoto funcional**, com **ZeroMQ para transporte binário de buffers NumPy**.
+A implementação usa um **worker remoto funcional**, com **ZeroMQ para transporte binário de buffers NumPy**.
 
 O projeto é deliberadamente tratado como **Proof of Concept (PoC)**. Ele não afirma ser um sistema HPC de produção.
 
@@ -36,13 +38,34 @@ O projeto é deliberadamente tratado como **Proof of Concept (PoC)**. Ele não a
 └──────────────────────┘
 ```
 
+### Estrutura
+
+```text
+PROJECT-NEURO-K/
+├── orchestrator.py
+├── worker.py
+├── requirements.txt
+├── benchmark-results.csv
+├── tests/
+│   ├── test_orchestrator.py
+│   └── test_integration.py
+├── docs/
+│   └── benchmarking.md
+└── .github/
+    └── workflows/
+        ├── ci.yml
+        └── benchmark.yml
+```
+
 ### Componentes
 
-- `orchestrator.py` — calibração, previsão, execução do benchmark e persistência dos resultados.
+- `orchestrator.py` — calibração, previsão, benchmark e persistência dos resultados.
 - `worker.py` — execução remota da multiplicação de matrizes.
-- `benchmark-results.csv` — resultados experimentais; as linhas existentes marcadas como `SIMULATED` são dados de simulação e não medições reais.
-- `requirements.txt` — dependências Python.
-- `.gitignore` — artefatos locais ignorados.
+- `tests/` — testes unitários e teste de integração do protocolo ZeroMQ.
+- `.github/workflows/ci.yml` — compilação e testes automatizados em cada push/PR.
+- `.github/workflows/benchmark.yml` — smoke benchmark reproduzível no GitHub Actions, com artefato CSV.
+- `docs/benchmarking.md` — metodologia e interpretação dos resultados.
+- `benchmark-results.csv` — histórico; linhas `SIMULATED` são dados de simulação, não medições reais.
 
 ## 🔬 Decisão adaptativa
 
@@ -67,7 +90,7 @@ e:
 OFFLOAD se T_offload < T_local
 ```
 
-A computação é escalada aproximadamente por `O(N³)`. Portanto, a decisão é uma **heurística de previsão** e deve ser validada pelo benchmark real.
+A computação é escalada aproximadamente por `O(N³)`. Portanto, a decisão é uma **heurística de previsão**, não uma garantia de desempenho.
 
 ## 💾 Memória
 
@@ -99,7 +122,7 @@ np.frombuffer(buffer, dtype=dtype)
 
 Isso evita JSON para os dados numéricos. A reconstrução via `frombuffer` evita uma cópia adicional naquele ponto, mas o pipeline completo **não é declarado como zero-copy end-to-end**.
 
-O protocolo ZeroMQ `REQ/REP` mantém a alternância obrigatória de request/response. O fluxo é:
+O protocolo ZeroMQ `REQ/REP` mantém a alternância obrigatória de request/response:
 
 ```text
 REQUEST → READY
@@ -108,7 +131,29 @@ B       → RESULT_READY
 SEND_RESULT → binary C
 ```
 
-## 🧪 Benchmark
+O worker aceita explicitamente `float32` e `float64` e rejeita tipos não suportados.
+
+## 🧪 Testes automatizados
+
+Execute localmente:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+A suíte cobre:
+
+- estimativas de memória;
+- pré-condição de calibração;
+- decisão de offload quando o worker é previsto como mais rápido;
+- decisão local quando comunicação domina;
+- condição de pressão de RAM;
+- persistência do CSV;
+- protocolo ZeroMQ e integridade numérica `A @ B == C`.
+
+O GitHub Actions executa os mesmos testes em Python 3.12 e também verifica a compilação dos módulos.
+
+## 📊 Benchmark
 
 O arquivo `benchmark-results.csv` pode conter dados de simulação e medições reais. **Resultados simulados são explicitamente marcados como `SIMULATED` e não devem ser apresentados como evidência experimental.**
 
@@ -135,7 +180,7 @@ pip install -r requirements.txt
 Em um terminal:
 
 ```bash
-python worker.py --port 5555
+python worker.py --host 127.0.0.1 --port 5555
 ```
 
 ### 3. Executar o orquestrador
@@ -143,16 +188,16 @@ python worker.py --port 5555
 Em outro terminal:
 
 ```bash
-python orchestrator.py --worker tcp://127.0.0.1:5555
+python orchestrator.py --worker tcp://127.0.0.1:5555 --sizes 256 512 1024 2048 --results benchmark-results.csv
 ```
 
-Você também pode escolher os tamanhos e o arquivo de resultados:
+As medições reais são gravadas com `status=MEASURED`.
 
-```bash
-python orchestrator.py --sizes 256 512 1024 2048 --results benchmark-results.csv
-```
+### Validação automática
 
-As medições reais são gravadas com `status=MEASURED`. Em uma execução experimental séria, recomenda-se realizar o benchmark com o worker em uma máquina separada para que rede e computação remota sejam efetivamente avaliadas.
+O workflow `Benchmark validation` executa um smoke benchmark com `N=64,128,256`, valida o CSV e publica o resultado como artefato da execução. Isso valida **corretude e reprodutibilidade do pipeline**, mas não substitui um benchmark científico em hosts fisicamente separados.
+
+Para metodologia, limitações e interpretação, consulte `docs/benchmarking.md`.
 
 ## ⚠️ Limitações conhecidas
 
@@ -168,23 +213,23 @@ Ainda seriam necessários, entre outros:
 - filas assíncronas;
 - chunking/streaming para cargas muito grandes;
 - observabilidade;
-- testes automatizados de protocolo e integridade numérica;
 - benchmark em máquinas fisicamente separadas;
 - controle de threads/BLAS para comparação rigorosa;
-- modelo de decisão treinado com histórico suficiente.
+- modelo de decisão treinado com histórico suficiente;
+- análise estatística com múltiplas execuções e intervalos de confiança.
 
 ## 🧭 Próximos passos
 
-1. Adicionar testes automatizados para protocolo e integridade numérica.
-2. Executar benchmarks em hosts fisicamente separados.
-3. Comparar `float32`, `float64` e diferentes bibliotecas BLAS.
-4. Alimentar o modelo de decisão com histórico de medições reais.
-5. Investigar batching e operações assíncronas.
-6. Adicionar autenticação e transporte seguro ao worker.
+1. Executar benchmarks em hosts fisicamente separados.
+2. Comparar `float32`, `float64` e diferentes bibliotecas BLAS.
+3. Alimentar o modelo de decisão com histórico de medições reais.
+4. Investigar batching e operações assíncronas.
+5. Adicionar autenticação e transporte seguro ao worker.
+6. Expandir observabilidade e análise estatística dos benchmarks.
 
 ## 📌 Classificação
 
-**Estado atual: Proof of Concept (PoC) funcional, com protocolo ZeroMQ corrigido e suporte à persistência de benchmarks reais.**
+**Estado atual: Proof of Concept (PoC) funcional, testado automaticamente e com pipeline de benchmark validável.**
 
 Os números atualmente marcados como `SIMULATED` são apenas dados de simulação. Ganhos de desempenho não devem ser tratados como fatos até que sejam obtidos por execução experimental reproduzível.
 
@@ -196,4 +241,4 @@ Os números atualmente marcados como `SIMULATED` são apenas dados de simulaçã
 
 Assistência de IA foi utilizada como apoio à arquitetura e revisão técnica. As decisões, código e validação do repositório devem ser verificadas pelo autor.
 
-**Versão:** 2.2
+**Versão:** 2.3
