@@ -1,0 +1,69 @@
+name: Benchmark Analysis
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "results/vercel/*.csv"
+      - "results/zeromq/*.csv"
+      - "scripts/analyze_benchmark.py"
+      - "docs/benchmark-schema.md"
+
+permissions:
+  contents: write
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Analyze Vercel observations
+        shell: bash
+        run: |
+          set -euo pipefail
+          input="$(find results/vercel -maxdepth 1 -type f -name 'benchmark-results-*.csv' | sort | tail -n 1)"
+          if [[ -z "${input}" ]]; then
+            echo "No Vercel benchmark CSV found; skipping Vercel analysis."
+            exit 0
+          fi
+          python scripts/analyze_benchmark.py \
+            "${input}" \
+            results/analysis/vercel_function_summary.csv
+
+      - name: Analyze ZeroMQ observations
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -d results/zeromq ]]; then
+            echo "No ZeroMQ results directory yet; skipping ZeroMQ analysis."
+            exit 0
+          fi
+          input="$(find results/zeromq -maxdepth 1 -type f -name 'benchmark-results-*.csv' | sort | tail -n 1)"
+          if [[ -z "${input}" ]]; then
+            echo "No ZeroMQ benchmark CSV found; skipping ZeroMQ analysis."
+            exit 0
+          fi
+          python scripts/analyze_benchmark.py \
+            "${input}" \
+            results/analysis/zeromq_worker_summary.csv
+
+      - name: Commit generated analysis
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results/analysis
+          if git diff --cached --quiet; then
+            echo "No analysis changes to commit."
+            exit 0
+          fi
+          git commit -m "results: update benchmark analysis [skip ci]"
+          git push
