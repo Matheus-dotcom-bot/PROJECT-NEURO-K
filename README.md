@@ -1,179 +1,189 @@
 # PROJECT-NEURO-K
-Autores: Matheus Pedroso (Pesquisador Independente &amp; System Architect) &amp; Gemini (AI Architecture, Google). Contexto: Projeto de portfólio técnico preparatório para ingresso em Engenharia Computacional. Data: Janeiro, 2026.
 
-# 📄 Resumo (Abstract)
+**Adaptive Computational Offloading — Proof of Concept**
 
-O avanço das ferramentas de Inteligência Artificial e Engenharia de Dados frequentemente exige hardware de alto custo. Este artigo apresenta o PROJECT NEURO-K, desenvolvido como um estudo de caso independente sobre arquitetura de software de alta eficiência. O projeto combina otimização de baixo nível (Linguagem C) com orquestração de nuvem (Google Cloud), demonstrando aptidão técnica avançada e prontidão para desafios acadêmicos de nível superior.
+> Projeto de portfólio técnico de Matheus Pedroso, voltado a Engenharia Computacional, arquitetura de sistemas e engenharia de performance.
 
-# 👨‍💻 Sobre o Desenvolvedor: 
-Matheus Pedroso é um desenvolvedor e pesquisador independente focado em Engenharia de Performance e Arquitetura de Sistemas. O PROJECT NEURO-K foi desenvolvido como uma prova de conceito de suas habilidades técnicas (C, Python, Cloud) visando sua futura admissão no curso de Engenharia Computacional.
+## 🎯 Objetivo
 
-# Otimização Sistêmica em Hardware de Recursos Limitados: Uma Abordagem Híbrida via PROJECT NEURO-K
+O PROJECT-NEURO-K investiga uma pergunta prática:
 
-# 1. Resumo (Abstract)
+> **Quando vale a pena transferir uma carga de álgebra linear de uma máquina local para um worker remoto?**
 
-A complexidade dos algoritmos modernos de Ciência de Dados frequentemente colide com as limitações de hardware de entrada (ex: processadores i3, 4GB RAM). Este artigo documenta o desenvolvimento do PROJECT NEURO-K, uma arquitetura de software que supera essas barreiras físicas. Através de uma abordagem híbrida, o sistema utiliza extensões nativas em C para gestão de Kernel e orquestração agêntica (n8n) para transbordo de processamento (offloading) para a Google Cloud, provando que a eficiência de código supera a força bruta do hardware.
+A versão atual substitui a proposta conceitual baseada em webhook por um **worker remoto funcional**, usando **ZeroMQ para transporte binário de buffers NumPy**.
 
-# 2. Introdução: O Problema do "Overhead"
+O projeto é deliberadamente tratado como **Proof of Concept (PoC)**. Ele não afirma ser um sistema HPC de produção.
 
-Em ambientes com memória restrita, linguagens interpretadas como Python sofrem com o overhead (custo extra) de gerenciamento de memória e o Global Interpreter Lock (GIL). Isso causa travamentos (thrashing) quando o sistema tenta realizar cálculos matriciais pesados. A hipótese deste projeto é que, ao "descer ao metal" (Low-Level Programming) para tarefas críticas e "subir à nuvem" para picos de carga, é possível manter um sistema estável e performático.
+## 🏗️ Arquitetura
 
-# 3. Implementação Técnica (A Prova de Conceito)
+```text
+┌──────────────────────┐
+│   Local Orchestrator │
+│                      │
+│ psutil               │
+│ calibration          │
+│ decision model       │
+│ NumPy / BLAS         │
+└──────────┬───────────┘
+           │ ZeroMQ / TCP
+           │ NumPy raw bytes
+           ▼
+┌──────────────────────┐
+│    Remote Worker     │
+│                      │
+│ NumPy / BLAS         │
+│ matrix multiplication│
+└──────────────────────┘
+```
 
-A arquitetura do NEURO-K baseia-se em três módulos principais. Abaixo, apresentamos o código-fonte desenvolvido para validar a metodologia.
-3.1. O Núcleo Nativo (Low-Level Core)
+### Componentes
 
-Para evitar o consumo excessivo de RAM pelo interpretador, desenvolvemos uma extensão em Linguagem C. Este módulo interage diretamente com o Kernel Linux para limpar o cache de arquivos (PageCache) antes de executar tarefas pesadas.
+- `orchestrator.py` — calibração, decisão e benchmark.
+- `worker.py` — execução remota da multiplicação de matrizes.
+- `requirements.txt` — dependências Python.
+- `.gitignore` — artefatos locais ignorados.
 
-Arquivo: core/neuro_k_core.c
-C
+## 🔬 Decisão adaptativa
 
-/* * PROJECT NEURO-K - Core Extension
- * Autores: Matheus Pedroso & Gemini AI
- * Descrição: Manipulação de hardware e Kernel para performance extrema.
- */
+A decisão não usa mais valores fixos como “CPU = 2 GFLOPS” ou “worker = 2× mais rápido”.
 
-#include <Python.h>
-#include <unistd.h>
-#include <stdio.h>
+O orquestrador executa uma etapa de **calibração** e mede:
 
-// --- FUNÇÃO DE LIMPEZA DO NICHO (Kernel Cache Flush) ---
-// Escreve diretamente no sistema de arquivos virtual /proc para liberar RAM
-static PyObject* method_nicho_clean(PyObject* self, PyObject* args) {
-    // Sincroniza dados pendentes no disco para evitar corrupção
-    sync(); 
-    
-    // Acesso direto ao controle de memória virtual do Linux
-    FILE *fp = fopen("/proc/sys/vm/drop_caches", "w");
-    if (fp) {
-        fprintf(fp, "3"); // '3' instrui o Kernel a limpar PageCache, dentries e inodes
-        fclose(fp);
-        return Py_BuildValue("s", "✅ NICHO_CLEAN: Kernel Cache Flush Success.");
-    }
-    return Py_BuildValue("s", "⚠️ NICHO_ERROR: Root access required.");
-}
+- tempo local;
+- tempo do worker;
+- taxa de transferência observada;
+- RTT aproximado.
 
-// --- CÁLCULO DE ALTA PERFORMANCE (Bypass do Interpretador) ---
-// Realiza somas complexas sem o overhead de objetos Python
-static PyObject* method_fast_sum(PyObject* self, PyObject* args) {
-    long n;
-    if (!PyArg_ParseTuple(args, "l", &n)) return NULL;
-    
-    long long sum = 0;
-    // Loop otimizado pelo compilador GCC para instruções de máquina
-    for (long i = 0; i < n; i++) sum += i;
-    
-    return PyLong_FromLongLong(sum);
-}
+Depois utiliza essas medições para estimar o custo de uma carga maior.
 
-// Definição da Tabela de Métodos para o Python
-static PyMethodDef NeuroKMethods[] = {
-    {"nicho_clean", method_nicho_clean, METH_VARARGS, "Limpa o cache do sistema via Kernel"},
-    {"fast_sum", method_fast_sum, METH_VARARGS, "Processamento bruto em C"},
-    {NULL, NULL, 0, NULL}
-};
+A regra conceitual é:
 
-static struct PyModuleDef neurokmodule = {
-    PyModuleDef_HEAD_INIT, "neuro_k_core", NULL, -1, NeuroKMethods
-};
+```text
+T_offload ≈ T_remote_compute + T_transfer + T_RTT
+```
 
-// Inicializador do Módulo
-PyMODINIT_FUNC PyInit_neuro_k_core(void) {
-    return PyModule_Create(&neurokmodule);
-}
+e:
 
-3.2. O Compilador da Extensão
+```text
+OFFLOAD se T_offload < T_local
+```
 
-Script responsável por transformar o código C acima em uma biblioteca compartilhada (.so) que o sistema operacional reconhece.
+A estimativa de custo é uma heurística baseada em escala `O(N³)`. Portanto, ela é uma previsão e deve ser validada pelo benchmark real.
 
-Arquivo: core/setup.py
-Python
+## 💾 Memória
 
-from setuptools import setup, Extension
+A memória mínima aproximada para uma multiplicação matricial é estimada por:
 
-# Define o módulo de extensão
-module = Extension("neuro_k_core", sources=["neuro_k_core.c"])
+```text
+3 × N² × sizeof(dtype)
+```
 
-setup(
-    name="NeuroKCore",
-    version="1.0",
-    description="Interface de baixo nível e otimização de Kernel para NEURO-K",
-    ext_modules=[module],
-)
+correspondendo a A, B e C.
 
-3.3. O Orquestrador Híbrido (The Brain)
+O monitoramento utiliza `psutil.virtual_memory().available` e não requer privilégios root.
 
-O script principal em Python atua como o "gerente". Ele utiliza a biblioteca Intel MKL (via NumPy) para vetorização e monitora a telemetria. Se o gargalo é detectado, ele aciona o transbordo para a nuvem.
+**Importante:** essa estimativa é um limite inferior. Bibliotecas BLAS podem utilizar memória adicional.
 
-Arquivo: nicho/main_engine.py
-Python
+## 📡 Transporte
 
-import neuro_k_core  # Nossa extensão em C compilada
-import numpy as np
-import requests
-import psutil
-import time
+As matrizes são enviadas como buffers binários:
 
-def check_bottleneck_and_offload():
-    """
-    Monitora a saúde do 'Nicho'. Se a RAM estiver crítica,
-    envia a carga de trabalho para a Google Cloud via n8n.
-    """
-    # Monitoramento em tempo real
-    ram_free = psutil.virtual_memory().available / (1024 * 1024)
-    cpu_usage = psutil.cpu_percent()
-    
-    print(f"📊 Telemetria: RAM Livre: {ram_free:.2f}MB | CPU: {cpu_usage}%")
+```python
+np.ascontiguousarray(A).tobytes()
+```
 
-    if ram_free < 500: # Limite de segurança: 500MB
-        print("⚠️ GARGALO DETECTADO! Iniciando protocolo de Offloading...")
-        
-        # Webhook do n8n (que conecta ao Google Vertex AI)
-        webhook_url = "http://localhost:5678/webhook/bottleneck"
-        payload = {
-            "alert": "OVERLOAD", 
-            "node": "PROTO-01-I3",
-            "action": "Request Cloud Processing"
-        }
-        
-        try:
-            requests.post(webhook_url, json=payload, timeout=2)
-            print("☁️ Carga transferida para a Nuvem com sucesso.")
-            return True
-        except:
-            print("❌ Falha na conexão com o Orquestrador n8n.")
-    return False
+e reconstruídas no worker com:
 
-def run_neuro_computation():
-    """Executa álgebra linear vetorizada localmente se houver recursos."""
-    print(f"\n🚀 NEURO-K: Iniciando Kernel de Processamento...")
-    
-    # Limpeza preventiva de memória via C Extension
-    print(neuro_k_core.nicho_clean())
-    
-    # Operação matricial pesada (Otimizada por Intel MKL)
-    N = 4000
-    A = np.random.rand(N, N)
-    B = np.random.rand(N, N)
-    C = np.dot(A, B)
-    
-    print("✅ Operação Local Concluída (Hardware Preservado).")
+```python
+np.frombuffer(buffer, dtype=dtype)
+```
 
-if __name__ == "__main__":
-    if not check_bottleneck_and_offload():
-        run_neuro_computation()
+Isso evita JSON para os dados numéricos. A reconstrução via `frombuffer` evita uma cópia adicional naquele ponto, mas o pipeline completo **não é declarado como zero-copy end-to-end**.
 
-# 4. Resultados e Discussão
+## 🧪 Benchmark
 
-A implementação do NEURO-K demonstrou que é possível executar fluxos de trabalho de engenharia complexos em hardware limitado.
+O benchmark é executável, mas **nenhum número é inventado neste README**.
 
-# 5. Conclusão
+Para executar:
 
-Este projeto valida a competência técnica na orquestração de sistemas operacionais e arquitetura de nuvem. O PROJECT NEURO-K não é apenas um código, mas uma metodologia de engenharia que prioriza a inteligência da arquitetura sobre o custo do equipamento.
+### 1. Criar ambiente
 
-    Eficiência de Memória: A chamada nicho_clean liberou, em média, 400MB de RAM cacheada antes da execução dos scripts, prevenindo o uso de Swap.
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
-    Elasticidade: O sistema de offloading garantiu que o computador local (i3) nunca atingisse 100% de travamento, delegando picos de processamento para a infraestrutura da Google.
-    
-# 🏛️ Seção de Rodapé do README (Créditos Finais)
-Desenvolvido integralmente por Matheus B. Pedroso com suporte de arquitetura Gemini AI.
+No Windows:
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+### 2. Iniciar o worker
+
+Em um terminal:
+
+```bash
+python worker.py --port 5555
+```
+
+### 3. Executar o orquestrador
+
+Em outro terminal:
+
+```bash
+python orchestrator.py --worker tcp://127.0.0.1:5555
+```
+
+Você também pode escolher os tamanhos:
+
+```bash
+python orchestrator.py --sizes 256 512 1024 2048
+```
+
+## ⚠️ Limitações conhecidas
+
+Esta é uma PoC, não uma plataforma de produção.
+
+Ainda seriam necessários, entre outros:
+
+- autenticação do worker;
+- TLS ou rede privada segura;
+- reconexão e retry robustos;
+- controle de concorrência;
+- backpressure;
+- filas assíncronas;
+- chunking/streaming para cargas muito grandes;
+- observabilidade;
+- testes automatizados;
+- benchmark em máquinas separadas;
+- controle de threads/BLAS para comparação rigorosa;
+- persistência de resultados experimentais.
+
+## 🧭 Próximos passos
+
+1. Adicionar testes automatizados para protocolo e integridade numérica.
+2. Executar benchmarks em hosts fisicamente separados.
+3. Salvar resultados em CSV.
+4. Implementar um modelo de decisão alimentado por histórico de medições.
+5. Avaliar `float32`, `float64` e diferentes bibliotecas BLAS.
+6. Investigar batching e operações assíncronas.
+
+## 📌 Classificação
+
+**Estado atual: Proof of Concept (PoC) funcional e reproduzível, sujeito à validação experimental no ambiente de execução.**
+
+Não são apresentados ganhos de desempenho como fato até que os benchmarks sejam realmente executados.
+
+---
+
+### Créditos
+
+**Matheus Pedroso** — projeto e desenvolvimento.
+
+Assistência de IA foi utilizada como apoio à arquitetura e revisão técnica. As decisões, código e validação do repositório devem ser verificadas pelo autor.
+
+**Versão:** 2.1
