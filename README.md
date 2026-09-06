@@ -16,6 +16,31 @@ A implementação usa um **worker remoto funcional**, com **ZeroMQ para transpor
 
 O projeto é deliberadamente tratado como **Proof of Concept (PoC)**. Ele não afirma ser um sistema HPC de produção.
 
+## ☁️ Vercel e worker físico
+
+O projeto também possui uma camada **FastAPI hospedada na Vercel**. Ela fornece endpoints de saúde, runtime e um benchmark de referência executado dentro da função serverless.
+
+O benchmark da Vercel é identificado como `VERCEL_FUNCTION` e **não deve ser confundido com o benchmark ZeroMQ físico**. Funções serverless são ambientes efêmeros; portanto, a Vercel não é tratada como um worker TCP/ZeroMQ persistente.
+
+A arquitetura experimental fica:
+
+```text
+                         HTTP
+┌───────────────────┐  ───────>  ┌─────────────────────────┐
+│ Cliente / pesquisa│             │ Vercel Function         │
+└─────────┬─────────┘             │ FastAPI cloud baseline  │
+          │                       └─────────────────────────┘
+          │ ZeroMQ / TCP
+          ▼
+┌─────────────────────────┐
+│ Worker persistente      │
+│ worker.py               │
+│ NumPy / BLAS            │
+└─────────────────────────┘
+```
+
+Assim, a Vercel serve como **baseline de execução cloud e camada HTTP**, enquanto o worker ZeroMQ continua sendo o alvo do experimento de offload.
+
 ## 🏗️ Arquitetura
 
 ```text
@@ -43,6 +68,8 @@ O projeto é deliberadamente tratado como **Proof of Concept (PoC)**. Ele não a
 
 ```text
 PROJECT-NEURO-K/
+├── api/
+│   └── index.py
 ├── orchestrator.py
 ├── worker.py
 ├── requirements.txt
@@ -61,6 +88,7 @@ PROJECT-NEURO-K/
 
 ### Componentes
 
+- `api/index.py` — API FastAPI para Vercel, incluindo baseline cloud.
 - `orchestrator.py` — calibração, previsão, benchmark, repetições e metadados de ambiente.
 - `worker.py` — execução remota da multiplicação de matrizes com validação de entrada e limites de recursos.
 - `tests/` — testes unitários e teste de integração do protocolo ZeroMQ.
@@ -176,8 +204,6 @@ O orquestrador suporta:
 - `--repetitions` para obter múltiplas observações por tamanho;
 - `--metadata` para registrar Python, plataforma, CPU, memória inicial, versão das bibliotecas e informações do BLAS/thread pool.
 
-Bibliotecas BLAS podem usar múltiplas threads e alterar significativamente o desempenho; por isso o protocolo registra explicitamente o runtime observado. citeturn0search0turn0search6
-
 ### Benchmark físico recomendado
 
 Para uma primeira coleta real, use dois hosts fisicamente separados, fixe a configuração de threads do BLAS e execute, por exemplo:
@@ -194,9 +220,31 @@ python orchestrator.py \
 
 **Não execute esse comando sobre o `benchmark-results.csv` histórico**, pois esse arquivo contém as linhas simuladas preservadas para proveniência.
 
+### Baseline Vercel
+
+A API cloud pode ser consultada com:
+
+```text
+GET /health
+GET /runtime
+POST /benchmark
+```
+
+Exemplo de corpo para `POST /benchmark`:
+
+```json
+{
+  "n": 512,
+  "dtype": "float64",
+  "seed": 0
+}
+```
+
+A resposta registra `status=MEASURED`, `execution=VERCEL_FUNCTION`, tamanho da matriz, dtype, seed, tempo de computação e checksum do resultado. Esse tempo é **medição do ambiente serverless**, não ganho de offload ZeroMQ.
+
 ### Validação automática
 
-O workflow `Benchmark validation` executa um smoke benchmark com `N=64,128,256`, três repetições e um warm-up por tamanho. Além do CSV, publica os metadados do runtime como artefato. Isso valida **corretude e reprodutibilidade do pipeline**, mas não substitui um benchmark científico em hosts fisicamente separados.
+O workflow `Benchmark validation` executa um smoke benchmark com `N=64,128,256`, três repetições e um warm-up por tamanho. Além do CSV, publica os metadados do runtime como artefato. Isso valida **corretude e reprodutibilidade do pipeline**, mas não substitui um benchmark físico.
 
 Para o protocolo completo, consulte `docs/experimental-benchmark-protocol.md`.
 
@@ -219,18 +267,21 @@ Ainda seriam necessários, entre outros:
 - modelo de decisão treinado com histórico suficiente;
 - análise estatística com múltiplas execuções e intervalos de confiança.
 
+A Vercel não é usada como substituta artificial de um worker persistente. Ela fornece uma referência cloud separada para comparação e demonstração da API.
+
 ## 🧭 Próximos passos
 
-1. Executar o protocolo de benchmark em hosts fisicamente separados.
-2. Preservar os metadados de hardware, software, BLAS e rede junto dos resultados.
-3. Comparar `float32` e `float64` sob configuração controlada.
-4. Alimentar o modelo de decisão com histórico de medições reais.
-5. Investigar batching e operações assíncronas.
-6. Expandir observabilidade e análise estatística dos benchmarks.
+1. Usar o endpoint Vercel como baseline cloud.
+2. Executar o protocolo ZeroMQ em hosts fisicamente separados.
+3. Preservar os metadados de hardware, software, BLAS e rede junto dos resultados.
+4. Comparar `float32` e `float64` sob configuração controlada.
+5. Alimentar o modelo de decisão com histórico de medições reais.
+6. Investigar batching e operações assíncronas.
+7. Expandir observabilidade e análise estatística dos benchmarks.
 
 ## 📌 Classificação
 
-**Estado atual: Proof of Concept (PoC) funcional, testado automaticamente e com protocolo de benchmark físico definido.**
+**Estado atual: Proof of Concept (PoC) funcional, testado automaticamente, com API Vercel e protocolo de benchmark físico definido.**
 
 Os números atualmente marcados como `SIMULATED` são apenas dados de simulação. Ganhos de desempenho não devem ser tratados como fatos até que sejam obtidos por execução experimental reproduzível.
 
