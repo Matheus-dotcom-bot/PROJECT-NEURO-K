@@ -3,7 +3,7 @@ from fastapi import FastAPI
 app = FastAPI(
     title="PROJECT-NEURO-K",
     description="Adaptive computational offloading proof of concept.",
-    version="2.4.0",
+    version="2.5.0",
 )
 
 
