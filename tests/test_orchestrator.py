@@ -23,6 +23,17 @@ class TestOrchestratorMath(unittest.TestCase):
         finally:
             orchestrator.close()
 
+    def test_predict_rejects_non_positive_size(self):
+        orchestrator = NeuroKOrchestrator("tcp://127.0.0.1:1")
+        orchestrator.calibration = Calibration(0.1, 0.1, 1e9, 0.001)
+        try:
+            with self.assertRaises(ValueError):
+                orchestrator.predict(0)
+            with self.assertRaises(ValueError):
+                orchestrator.predict(-1)
+        finally:
+            orchestrator.close()
+
     def test_predict_offload_when_remote_is_faster(self):
         orchestrator = NeuroKOrchestrator("tcp://127.0.0.1:1")
         orchestrator.calibration = Calibration(
@@ -78,6 +89,7 @@ class TestCsvPersistence(unittest.TestCase):
             "t_offload_total": 0.02,
             "gain_percent": -100.0,
             "metrics": {
+                "t_serialization": 0.0002,
                 "t_send_a": 0.001,
                 "t_send_b": 0.001,
                 "t_receive_c": 0.001,
@@ -95,6 +107,7 @@ class TestCsvPersistence(unittest.TestCase):
             self.assertEqual(rows[0]["status"], "MEASURED")
             self.assertEqual(rows[0]["n"], "64")
             self.assertEqual(rows[0]["decision"], "OFFLOAD")
+            self.assertEqual(rows[0]["t_serialization_s"], "0.0002")
 
 
 if __name__ == "__main__":
