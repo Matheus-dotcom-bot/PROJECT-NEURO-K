@@ -1,0 +1,1 @@
+ZeroMQ measurements use the shared schema and execution label `ZEROMQ_WORKER`. Default campaign is N=256,512,1024,2048 with float32/float64 and 10 measured repetitions after 2 warm-ups. Store raw data under `results/zeromq/` and aggregate independently before comparing against Vercel.
