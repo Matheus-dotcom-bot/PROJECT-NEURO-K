@@ -1,5 +1,0 @@
-timestamp,status,n,dtype,decision,reason,t_local_s,t_serialization_s,t_send_a_s,t_send_b_s,t_remote_deserialize_s,t_remote_compute_s,t_remote_serialize_s,t_receive_c_s,t_offload_total_s,gain_percent,error
-2026-09-05T00:00:00Z,SIMULATED,512,float64,LOCAL,NETWORK_OVERHEAD,0.012,,,,,,,,0.053,-341.67,
-2026-09-05T00:00:00Z,SIMULATED,1024,float64,LOCAL,SERIALIZATION_OVERHEAD,0.098,,,,,,,,0.168,-71.43,
-2026-09-05T00:00:00Z,SIMULATED,2048,float64,OFFLOAD,PREDICTED_FASTER,0.850,,,,0.310,,,,0.720,15.29,
-2026-09-05T00:00:00Z,SIMULATED,3072,float64,OFFLOAD,PREDICTED_FASTER,2.910,,,,0.980,,,,1.850,36.43,
