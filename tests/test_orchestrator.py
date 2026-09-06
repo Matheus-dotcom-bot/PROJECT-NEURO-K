@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import numpy as np
 
-from orchestrator import Calibration, NeuroKOrchestrator, append_result
+from orchestrator import Calibration, NeuroKOrchestrator, append_result, runtime_metadata
 
 
 class TestOrchestratorMath(unittest.TestCase):
@@ -108,6 +108,16 @@ class TestCsvPersistence(unittest.TestCase):
             self.assertEqual(rows[0]["n"], "64")
             self.assertEqual(rows[0]["decision"], "OFFLOAD")
             self.assertEqual(rows[0]["t_serialization_s"], "0.0002")
+
+    def test_runtime_metadata_contains_reproducibility_fields(self):
+        metadata = runtime_metadata("tcp://127.0.0.1:5555", [64, 128], 10, 3)
+        self.assertEqual(metadata["worker"], "tcp://127.0.0.1:5555")
+        self.assertEqual(metadata["sizes"], [64, 128])
+        self.assertEqual(metadata["repetitions"], 10)
+        self.assertEqual(metadata["warmup_runs"], 3)
+        self.assertIn("blas_runtime", metadata)
+        self.assertIn("python", metadata)
+        self.assertIn("numpy", metadata)
 
 
 if __name__ == "__main__":
