@@ -1,0 +1,71 @@
+name: Vercel benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      vercel_url:
+        description: "Deployed Vercel base URL"
+        required: true
+        type: string
+      repetitions:
+        description: "Measured repetitions per N/dtype"
+        required: false
+        default: "10"
+        type: string
+      warmup_runs:
+        description: "Warm-up requests per N/dtype"
+        required: false
+        default: "3"
+        type: string
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run Vercel benchmark
+        env:
+          VERCEL_URL: ${{ inputs.vercel_url }}
+          REPETITIONS: ${{ inputs.repetitions }}
+          WARMUPS: ${{ inputs.warmup_runs }}
+        run: |
+          python scripts/benchmark_vercel.py \
+            --url "$VERCEL_URL" \
+            --sizes 256 512 1024 2048 \
+            --dtypes float32 float64 \
+            --repetitions "$REPETITIONS" \
+            --warmup-runs "$WARMUPS" \
+            --results benchmark-results-vercel.csv \
+            --metadata benchmark-metadata-vercel.json
+
+      - name: Validate measured output
+        run: |
+          python - <<'PY'
+          import csv
+          from pathlib import Path
+
+          path = Path("benchmark-results-vercel.csv")
+          rows = list(csv.DictReader(path.open(encoding="utf-8")))
+          if not rows:
+              raise SystemExit("No benchmark rows were produced")
+          errors = [row for row in rows if row["status"] != "MEASURED"]
+          if errors:
+              raise SystemExit(f"Benchmark contains invalid rows: {errors[:3]}")
+          print(f"Validated {len(rows)} Vercel measured rows")
+          PY
+
+      - name: Upload Vercel benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: neuro-k-vercel-benchmark
+          path: |
+            benchmark-results-vercel.csv
+            benchmark-metadata-vercel.json
