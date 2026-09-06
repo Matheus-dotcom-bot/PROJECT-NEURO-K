@@ -1,0 +1,1 @@
+Next step is to execute the prepared collector against the real ZeroMQ worker. Do not synthesize or estimate the measurements. Once the raw CSV exists, run the shared analyzer and inspect the independent `ZEROMQ_WORKER` summary before building the Vercel comparison.
