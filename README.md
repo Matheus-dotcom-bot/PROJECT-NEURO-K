@@ -144,11 +144,13 @@ python -m unittest discover -s tests -v
 A suíte cobre:
 
 - estimativas de memória;
-- pré-condição de calibração;
+- pré-condição e validação da calibração;
+- rejeição de tamanhos de matriz inválidos;
 - decisão de offload quando o worker é previsto como mais rápido;
 - decisão local quando comunicação domina;
 - condição de pressão de RAM;
-- persistência do CSV;
+- persistência e schema do CSV;
+- registro do tempo de serialização;
 - protocolo ZeroMQ e integridade numérica `A @ B == C`.
 
 O GitHub Actions executa os mesmos testes em Python 3.12 e também verifica a compilação dos módulos.
@@ -156,6 +158,8 @@ O GitHub Actions executa os mesmos testes em Python 3.12 e também verifica a co
 ## 📊 Benchmark
 
 O arquivo `benchmark-results.csv` pode conter dados de simulação e medições reais. **Resultados simulados são explicitamente marcados como `SIMULATED` e não devem ser apresentados como evidência experimental.**
+
+Os campos de tempo incluem a serialização local dos buffers, transferência dos operandos, desserialização e computação no worker, serialização do resultado e recepção do resultado. Isso permite separar melhor o custo do pipeline de offload.
 
 Para executar um benchmark real:
 
@@ -241,4 +245,4 @@ Os números atualmente marcados como `SIMULATED` são apenas dados de simulaçã
 
 Assistência de IA foi utilizada como apoio à arquitetura e revisão técnica. As decisões, código e validação do repositório devem ser verificadas pelo autor.
 
-**Versão:** 2.3
+**Versão:** 2.4
