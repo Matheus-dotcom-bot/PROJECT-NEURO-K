@@ -33,6 +33,7 @@ O projeto é deliberadamente tratado como **Proof of Concept (PoC)**. Ele não a
 ┌──────────────────────┐
 │    Remote Worker     │
 │                      │
+│ validation / limits  │
 │ NumPy / BLAS         │
 │ matrix multiplication│
 └──────────────────────┘
@@ -60,7 +61,7 @@ PROJECT-NEURO-K/
 ### Componentes
 
 - `orchestrator.py` — calibração, previsão, benchmark e persistência dos resultados.
-- `worker.py` — execução remota da multiplicação de matrizes.
+- `worker.py` — execução remota da multiplicação de matrizes com validação de entrada e limites de recursos.
 - `tests/` — testes unitários e teste de integração do protocolo ZeroMQ.
 - `.github/workflows/ci.yml` — compilação e testes automatizados em cada push/PR.
 - `.github/workflows/benchmark.yml` — smoke benchmark reproduzível no GitHub Actions, com artefato CSV.
@@ -104,6 +105,8 @@ correspondendo a A, B e C.
 
 O monitoramento utiliza `psutil.virtual_memory().available` e não requer privilégios root.
 
+O worker também aplica um limite de segurança de **512 MiB de working set por padrão**, considerando A, B e C. O limite pode ser ajustado com `--max-memory-mb` para experimentos controlados.
+
 **Importante:** essa estimativa é um limite inferior. Bibliotecas BLAS podem utilizar memória adicional.
 
 ## 📡 Transporte e protocolo
@@ -131,7 +134,9 @@ B       → RESULT_READY
 SEND_RESULT → binary C
 ```
 
-O worker aceita explicitamente `float32` e `float64` e rejeita tipos não suportados.
+O worker aceita explicitamente `float32` e `float64`, valida o tamanho dos payloads e rejeita tipos e matrizes fora dos limites configurados.
+
+Por padrão, o worker escuta em `127.0.0.1`. Para uso em rede, o endereço de bind deve ser configurado conscientemente e a comunicação deve ser protegida por controles externos adequados; o PoC **não implementa autenticação nem TLS**.
 
 ## 🧪 Testes automatizados
 
@@ -151,7 +156,9 @@ A suíte cobre:
 - condição de pressão de RAM;
 - persistência e schema do CSV;
 - registro do tempo de serialização;
-- protocolo ZeroMQ e integridade numérica `A @ B == C`.
+- protocolo ZeroMQ e integridade numérica `A @ B == C`;
+- rejeição de working sets acima do limite do worker;
+- validação da configuração do worker.
 
 O GitHub Actions executa os mesmos testes em Python 3.12 e também verifica a compilação dos módulos.
 
@@ -185,6 +192,12 @@ Em um terminal:
 
 ```bash
 python worker.py --host 127.0.0.1 --port 5555
+```
+
+Para ajustar o limite de working set:
+
+```bash
+python worker.py --host 127.0.0.1 --port 5555 --max-memory-mb 1024
 ```
 
 ### 3. Executar o orquestrador
@@ -245,4 +258,4 @@ Os números atualmente marcados como `SIMULATED` são apenas dados de simulaçã
 
 Assistência de IA foi utilizada como apoio à arquitetura e revisão técnica. As decisões, código e validação do repositório devem ser verificadas pelo autor.
 
-**Versão:** 2.4
+**Versão:** 2.5
