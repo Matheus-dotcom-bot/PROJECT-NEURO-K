@@ -1,0 +1,1 @@
+Run `python scripts/benchmark_zeromq.py --worker tcp://WORKER_HOST:5555 --sizes 256 512 1024 2048 --dtypes float32 float64 --repetitions 10 --warmup-runs 2 --results results/zeromq/benchmark-results-zeromq.csv` after starting the worker. Then run `python scripts/analyze_benchmark.py results/zeromq/benchmark-results-zeromq.csv results/analysis/zeromq_worker_summary.csv`.
