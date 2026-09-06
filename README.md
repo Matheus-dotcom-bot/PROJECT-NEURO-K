@@ -51,7 +51,8 @@ PROJECT-NEURO-K/
 │   ├── test_orchestrator.py
 │   └── test_integration.py
 ├── docs/
-│   └── benchmarking.md
+│   ├── benchmarking.md
+│   └── experimental-benchmark-protocol.md
 └── .github/
     └── workflows/
         ├── ci.yml
@@ -60,12 +61,13 @@ PROJECT-NEURO-K/
 
 ### Componentes
 
-- `orchestrator.py` — calibração, previsão, benchmark e persistência dos resultados.
+- `orchestrator.py` — calibração, previsão, benchmark, repetições e metadados de ambiente.
 - `worker.py` — execução remota da multiplicação de matrizes com validação de entrada e limites de recursos.
 - `tests/` — testes unitários e teste de integração do protocolo ZeroMQ.
 - `.github/workflows/ci.yml` — compilação e testes automatizados em cada push/PR.
-- `.github/workflows/benchmark.yml` — smoke benchmark reproduzível no GitHub Actions, com artefato CSV.
+- `.github/workflows/benchmark.yml` — smoke benchmark reproduzível no GitHub Actions, com CSV e metadados como artefatos.
 - `docs/benchmarking.md` — metodologia e interpretação dos resultados.
+- `docs/experimental-benchmark-protocol.md` — protocolo para medições físicas reproduzíveis.
 - `benchmark-results.csv` — histórico; linhas `SIMULATED` são dados de simulação, não medições reais.
 
 ## 🔬 Decisão adaptativa
@@ -168,53 +170,35 @@ O arquivo `benchmark-results.csv` pode conter dados de simulação e medições 
 
 Os campos de tempo incluem a serialização local dos buffers, transferência dos operandos, desserialização e computação no worker, serialização do resultado e recepção do resultado. Isso permite separar melhor o custo do pipeline de offload.
 
-Para executar um benchmark real:
+O orquestrador suporta:
 
-### 1. Criar ambiente
+- `--warmup-runs` para evitar registrar a primeira execução como se fosse representativa;
+- `--repetitions` para obter múltiplas observações por tamanho;
+- `--metadata` para registrar Python, plataforma, CPU, memória inicial, versão das bibliotecas e informações do BLAS/thread pool.
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
+Bibliotecas BLAS podem usar múltiplas threads e alterar significativamente o desempenho; por isso o protocolo registra explicitamente o runtime observado. citeturn0search0turn0search6
 
-No Windows:
+### Benchmark físico recomendado
 
-```powershell
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
-
-### 2. Iniciar o worker
-
-Em um terminal:
+Para uma primeira coleta real, use dois hosts fisicamente separados, fixe a configuração de threads do BLAS e execute, por exemplo:
 
 ```bash
-python worker.py --host 127.0.0.1 --port 5555
+python orchestrator.py \
+  --worker tcp://IP_DO_WORKER:5555 \
+  --sizes 256 512 1024 2048 \
+  --warmup-runs 3 \
+  --repetitions 10 \
+  --results benchmark-results-measured.csv \
+  --metadata benchmark-metadata.json
 ```
 
-Para ajustar o limite de working set:
-
-```bash
-python worker.py --host 127.0.0.1 --port 5555 --max-memory-mb 1024
-```
-
-### 3. Executar o orquestrador
-
-Em outro terminal:
-
-```bash
-python orchestrator.py --worker tcp://127.0.0.1:5555 --sizes 256 512 1024 2048 --results benchmark-results.csv
-```
-
-As medições reais são gravadas com `status=MEASURED`.
+**Não execute esse comando sobre o `benchmark-results.csv` histórico**, pois esse arquivo contém as linhas simuladas preservadas para proveniência.
 
 ### Validação automática
 
-O workflow `Benchmark validation` executa um smoke benchmark com `N=64,128,256`, valida o CSV e publica o resultado como artefato da execução. Isso valida **corretude e reprodutibilidade do pipeline**, mas não substitui um benchmark científico em hosts fisicamente separados.
+O workflow `Benchmark validation` executa um smoke benchmark com `N=64,128,256`, três repetições e um warm-up por tamanho. Além do CSV, publica os metadados do runtime como artefato. Isso valida **corretude e reprodutibilidade do pipeline**, mas não substitui um benchmark científico em hosts fisicamente separados.
 
-Para metodologia, limitações e interpretação, consulte `docs/benchmarking.md`.
+Para o protocolo completo, consulte `docs/experimental-benchmark-protocol.md`.
 
 ## ⚠️ Limitações conhecidas
 
@@ -237,16 +221,16 @@ Ainda seriam necessários, entre outros:
 
 ## 🧭 Próximos passos
 
-1. Executar benchmarks em hosts fisicamente separados.
-2. Comparar `float32`, `float64` e diferentes bibliotecas BLAS.
-3. Alimentar o modelo de decisão com histórico de medições reais.
-4. Investigar batching e operações assíncronas.
-5. Adicionar autenticação e transporte seguro ao worker.
+1. Executar o protocolo de benchmark em hosts fisicamente separados.
+2. Preservar os metadados de hardware, software, BLAS e rede junto dos resultados.
+3. Comparar `float32` e `float64` sob configuração controlada.
+4. Alimentar o modelo de decisão com histórico de medições reais.
+5. Investigar batching e operações assíncronas.
 6. Expandir observabilidade e análise estatística dos benchmarks.
 
 ## 📌 Classificação
 
-**Estado atual: Proof of Concept (PoC) funcional, testado automaticamente e com pipeline de benchmark validável.**
+**Estado atual: Proof of Concept (PoC) funcional, testado automaticamente e com protocolo de benchmark físico definido.**
 
 Os números atualmente marcados como `SIMULATED` são apenas dados de simulação. Ganhos de desempenho não devem ser tratados como fatos até que sejam obtidos por execução experimental reproduzível.
 
@@ -258,4 +242,4 @@ Os números atualmente marcados como `SIMULATED` são apenas dados de simulaçã
 
 Assistência de IA foi utilizada como apoio à arquitetura e revisão técnica. As decisões, código e validação do repositório são verificadas pelo autor.
 
-**Versão:** 2.5
+**Versão:** 2.6
