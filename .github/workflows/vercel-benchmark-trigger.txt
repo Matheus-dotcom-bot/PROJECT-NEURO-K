@@ -1,0 +1,4 @@
+Trigger the controlled Vercel benchmark campaign.
+Endpoint: https://project-neuro-k.vercel.app
+Campaign: float32/float64 × N=256,512,1024,2048 × 10 measured repetitions × 3 warm-ups.
+This file exists only to trigger the benchmark workflow once through a push event.
