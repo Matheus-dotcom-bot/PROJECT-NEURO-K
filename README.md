@@ -256,6 +256,6 @@ Os números atualmente marcados como `SIMULATED` são apenas dados de simulaçã
 
 **Matheus Pedroso** — projeto e desenvolvimento.
 
-Assistência de IA foi utilizada como apoio à arquitetura e revisão técnica. As decisões, código e validação do repositório devem ser verificadas pelo autor.
+Assistência de IA foi utilizada como apoio à arquitetura e revisão técnica. As decisões, código e validação do repositório são verificadas pelo autor.
 
 **Versão:** 2.5
