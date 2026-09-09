@@ -2,10 +2,23 @@
 
 **Adaptive Computational Offloading — Proof of Concept**
 
-> Projeto de portfólio técnico de Matheus Pedroso, voltado a Engenharia Computacional, arquitetura de sistemas e engenharia de performance.
+> **Em uma frase:** PoC em Python que decide, a partir de calibração observada, quando uma multiplicação matricial deve ser executada localmente ou enviada a um worker remoto via ZeroMQ.
 
 [![CI](https://github.com/Matheus-dotcom-bot/PROJECT-NEURO-K/actions/workflows/ci.yml/badge.svg)](https://github.com/Matheus-dotcom-bot/PROJECT-NEURO-K/actions/workflows/ci.yml)
 
+**Estado:** funcional / experimental · **Validação:** testes automatizados · **Benchmark:** simulado e protocolo físico definido
+
+### O que demonstra
+
+- 🧠 decisão adaptativa baseada em medições de calibração;
+- ⚙️ offloading de buffers NumPy por ZeroMQ/TCP;
+- 🧪 testes unitários e de integração automatizados;
+- ☁️ baseline cloud separado via FastAPI/Vercel;
+- 📊 benchmark com metadados e distinção explícita entre `SIMULATED` e `MEASURED`.
+
+> **Importante:** os resultados atualmente marcados como `SIMULATED` são dados de simulação. Eles não são apresentados como evidência experimental.
+
+---
 ## 🎯 Objetivo
 
 O PROJECT-NEURO-K investiga uma pergunta prática:
