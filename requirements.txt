@@ -1,5 +1,5 @@
 # Runtime dependencies. Version ranges stay within supported major versions.
-fastapi>=0.141,<1
+fastapi>=0.141.1,<1
 numpy>=2.5,<3
 psutil>=7.2,<8
 pyzmq>=27.2,<28
